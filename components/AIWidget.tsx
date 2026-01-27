@@ -17,7 +17,6 @@ import { v4 as uuidv4 } from "uuid";
 import { AgentMessage, AgentSession } from "@/lib/types";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useSync } from "@/hooks/useSync";
-import { LoginButton } from "@/components/LoginButton";
 
 // Removed local Message interface in favor of AgentMessage
 
@@ -347,7 +346,6 @@ export default function AIWidget() {
                 </span>
               </div>
               <div className="flex items-center gap-1">
-                <LoginButton />
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className="p-1 text-muted-foreground hover:text-indigo-500 transition-colors"
