@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAIConfig } from "@/hooks/useAIConfig";
 
 interface MeaningModalProps {
   word: EnrichedWord;
@@ -121,19 +122,45 @@ export default function MeaningModal({
               </div>
               <button
                 onClick={handleToggleMastery}
-                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 group/master ${word.state.recallScore >= 5
-                  ? "bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/20"
-                  : "bg-foreground text-background hover:opacity-90 active:scale-95 shadow-lg shadow-foreground/10"
-                  }`}
+                className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 group/master ${
+                  word.state.recallScore >= 5
+                    ? "bg-green-500/10 text-green-600 border border-green-500/20 hover:bg-red-500/10 hover:text-red-600 hover:border-red-500/20"
+                    : "bg-foreground text-background hover:opacity-90 active:scale-95 shadow-lg shadow-foreground/10"
+                }`}
               >
                 {word.state.recallScore >= 5 ? (
                   <>
                     <span className="group-hover/master:hidden flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
                       Mastered
                     </span>
                     <span className="hidden group-hover/master:flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
                       Unmaster
                     </span>
                   </>
@@ -165,14 +192,14 @@ function DoubtSection({
   folderId: string;
   wordTerm: string;
 }) {
+  const { config } = useAIConfig();
   const [query, setQuery] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [model, setModel] = useState("gemini-1.5-flash");
 
   useEffect(() => {
-    const savedModel = localStorage.getItem("gemini_model");
-    if (savedModel) setModel(savedModel);
-  }, []);
+    if (config.geminiModel) setModel(config.geminiModel);
+  }, [config.geminiModel]);
 
   // Fetch all doubts
   const doubts = useLiveQuery(
@@ -181,7 +208,7 @@ function DoubtSection({
         .where("[wordId+folderId]")
         .equals([wordId, folderId])
         .sortBy("createdAt")
-        .then(results => results.reverse()), // Most recent at top
+        .then((results) => results.reverse()), // Most recent at top
     [wordId, folderId],
   );
 
@@ -214,8 +241,16 @@ function DoubtSection({
         .equals([wordId, folderId])
         .toArray();
       const contextText = meanings.map((m) => m.content).join("; ");
-      const apiKey = localStorage.getItem("gemini_api_key");
-      const prePrompt = localStorage.getItem("gemini_pre_prompt");
+
+      // Fetch settings from DB
+      const {
+        geminiKey: apiKey,
+        geminiModel: configModel,
+        geminiPrePrompt: prePrompt,
+      } = config;
+
+      const activeModel = model || configModel || "gemini-1.5-flash";
+      const activePrePrompt = prePrompt;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -229,8 +264,8 @@ function DoubtSection({
           context: contextText || "General Context",
           query: query.trim(),
           apiKey: apiKey || undefined,
-          model: model,
-          prePrompt: prePrompt || undefined,
+          model: activeModel,
+          prePrompt: activePrePrompt || undefined,
         }),
       });
 
@@ -267,7 +302,7 @@ function DoubtSection({
 
   const handleClearAll = async () => {
     if (!doubts) return;
-    await Promise.all(doubts.map(d => db.doubts.delete(d.id)));
+    await Promise.all(doubts.map((d) => db.doubts.delete(d.id)));
   };
 
   return (
@@ -357,13 +392,27 @@ function DoubtSection({
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
-                      ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
-                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
-                      li: ({ children }) => <li className="mb-1">{children}</li>,
-                      h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                      h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
-                      h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                      p: ({ children }) => (
+                        <p className="mb-2 last:mb-0">{children}</p>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc pl-4 mb-2">{children}</ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal pl-4 mb-2">{children}</ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="mb-1">{children}</li>
+                      ),
+                      h1: ({ children }) => (
+                        <h1 className="text-lg font-bold mb-2">{children}</h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-base font-bold mb-2">{children}</h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-sm font-bold mb-1">{children}</h3>
+                      ),
                       code: ({ children }) => (
                         <code className="bg-blue-500/20 px-1 rounded text-xs font-mono">
                           {children}

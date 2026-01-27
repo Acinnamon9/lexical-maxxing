@@ -84,3 +84,9 @@ export interface AgentMessage {
   text: string;
   createdAt: number;
 }
+
+export interface UserSetting {
+  id: string;
+  value: string;
+  updatedAt: number;
+}
