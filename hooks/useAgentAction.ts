@@ -1,14 +1,44 @@
 import { db } from "@/lib/db";
 import { useCallback } from "react";
 
-export type ActionType = "CREATE_FOLDER" | "ADD_WORD";
+export type ActionType = "CREATE_FOLDER" | "ADD_WORD" | "GET_FOLDER_STRUCTURE" | "SEARCH_FOLDERS";
 
 export interface AgentAction {
     type: ActionType;
     payload: any;
 }
 
+// Helper to check if action is a read-only action
+export const isReadAction = (action: AgentAction): boolean => {
+    return action.type === "GET_FOLDER_STRUCTURE" || action.type === "SEARCH_FOLDERS";
+};
+
 export const useAgentAction = () => {
+    // Execute read-only actions and return results
+    const executeReadAction = useCallback(async (action: AgentAction): Promise<string | null> => {
+        if (action.type === "GET_FOLDER_STRUCTURE") {
+            const { parentId } = action.payload || {};
+            const folders = parentId
+                ? await db.folders.where("parentId").equals(parentId).toArray()
+                : await db.folders.toArray();
+
+            return JSON.stringify(folders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId })));
+        }
+
+        if (action.type === "SEARCH_FOLDERS") {
+            const { query } = action.payload || {};
+            if (!query) return JSON.stringify([]);
+
+            const allFolders = await db.folders.toArray();
+            const matches = allFolders.filter(f =>
+                f.name.toLowerCase().includes(query.toLowerCase())
+            );
+            return JSON.stringify(matches.map(f => ({ id: f.id, name: f.name, parentId: f.parentId })));
+        }
+
+        return null; // Not a read action
+    }, []);
+
     const executePlan = useCallback(async (actions: AgentAction[]) => {
         const tempIdMap: Record<string, string> = {};
         const log: string[] = [];
@@ -111,5 +141,5 @@ export const useAgentAction = () => {
         return log;
     }, []);
 
-    return { executePlan };
+    return { executePlan, executeReadAction };
 };

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAgentAction, AgentAction } from "@/hooks/useAgentAction";
+import { useAgentAction, AgentAction, isReadAction } from "@/hooks/useAgentAction";
 import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
@@ -45,7 +45,7 @@ export default function AIWidget() {
     );
 
     const [pendingActions, setPendingActions] = useState<AgentAction[] | null>(null);
-    const { executePlan } = useAgentAction();
+    const { executePlan, executeReadAction } = useAgentAction();
     const scrollRef = useRef<HTMLDivElement>(null);
 
     // Context Awareness
@@ -99,37 +99,72 @@ export default function AIWidget() {
             const apiKey = localStorage.getItem("gemini_api_key");
             const model = localStorage.getItem("gemini_model") || "gemini-1.5-flash";
 
-            const res = await fetch("/api/agent", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    query: userQuery,
-                    apiKey: apiKey || undefined,
-                    model: model,
-                    currentContext: {
-                        folderId: folderId || null,
-                        folderName: currentFolder?.name || null,
+            // ReAct Loop: Allow up to 3 iterations of read actions
+            const MAX_ITERATIONS = 3;
+            let iterations = 0;
+            let toolResults: Record<string, string> = {};
+
+            while (iterations < MAX_ITERATIONS) {
+                iterations++;
+
+                const res = await fetch("/api/agent", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        query: userQuery,
+                        apiKey: apiKey || undefined,
+                        model: model,
+                        currentContext: {
+                            folderId: folderId || null,
+                            folderName: currentFolder?.name || null,
+                        },
+                        toolResults: Object.keys(toolResults).length > 0 ? toolResults : undefined,
+                    }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.error || "Failed to contact Architect");
+
+                const agentResponseText = data.message || "I'm on it.";
+                const actions: AgentAction[] = data.actions || [];
+
+                // Separate read and write actions
+                const readActions = actions.filter(isReadAction);
+                const writeActions = actions.filter(a => !isReadAction(a));
+
+                // If there are read actions, execute them and loop back
+                if (readActions.length > 0) {
+                    console.log(`[ReAct] Executing ${readActions.length} read action(s)...`);
+
+                    for (const action of readActions) {
+                        const result = await executeReadAction(action);
+                        if (result) {
+                            const key = `${action.type}_${JSON.stringify(action.payload)}`;
+                            toolResults[key] = result;
+                        }
                     }
-                }),
-            });
 
-            const data = await res.json();
+                    // If there are ONLY read actions, continue the loop
+                    if (writeActions.length === 0) {
+                        continue;
+                    }
+                }
 
-            if (!res.ok) throw new Error(data.error || "Failed to contact Architect");
+                // We have write actions or no more read actions - show response
+                await db.agentMessages.add({
+                    id: crypto.randomUUID(),
+                    sessionId: activeSessionId,
+                    role: "agent",
+                    text: agentResponseText,
+                    createdAt: Date.now(),
+                });
 
-            const agentResponseText = data.message || "I'm on it.";
+                if (writeActions.length > 0) {
+                    setPendingActions(writeActions);
+                }
 
-            // Add Agent Message
-            await db.agentMessages.add({
-                id: crypto.randomUUID(),
-                sessionId: activeSessionId,
-                role: "agent",
-                text: agentResponseText,
-                createdAt: Date.now(),
-            });
-
-            if (data.actions && data.actions.length > 0) {
-                setPendingActions(data.actions);
+                break; // Exit the loop - we're done
             }
 
         } catch (e: any) {
