@@ -118,7 +118,10 @@ export default function ChunkPage() {
             whileHover={{ scale: 1.05, rotate: 1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedWord(word)}
-            className="p-6 bg-background border border-border rounded-2xl hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left group relative overflow-hidden"
+            className={`p-6 border rounded-2xl transition-all text-left group relative overflow-hidden ${word.state.recallScore >= 5
+              ? "bg-green-500/5 border-green-500/30 hover:border-green-500/50"
+              : "bg-background border-border hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10"
+              }`}
           >
             <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <svg
@@ -142,12 +145,18 @@ export default function ChunkPage() {
                 {word.term}
               </h3>
               <span
-                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${word.state.recallScore >= 2
+                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${word.state.recallScore >= 5
+                  ? "bg-green-500 text-white"
+                  : word.state.recallScore >= 2
                     ? "bg-green-500/10 text-green-600"
                     : "bg-muted text-muted-foreground"
                   }`}
               >
-                {word.state.recallScore >= 2 ? "FAM" : "NEW"}
+                {word.state.recallScore >= 5
+                  ? "MASTERED"
+                  : word.state.recallScore >= 2
+                    ? "FAM"
+                    : "NEW"}
               </span>
             </div>
             <div className="text-[10px] text-muted-foreground font-bold flex items-center gap-2 uppercase tracking-tighter">
