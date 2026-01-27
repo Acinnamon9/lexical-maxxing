@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     `;
 
     try {
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent(fullPrompt);
       const response = result.response.text();
       console.log("Clarify API: Successfully generated response");
       return NextResponse.json({ response });

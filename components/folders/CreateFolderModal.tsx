@@ -40,7 +40,7 @@ export default function CreateFolderModal({
             await db.folders.add({
                 id,
                 name: name.trim(),
-                parentId: parentId || undefined,
+                parentId: parentId || null,
             });
             onSuccess(id);
             onClose();
