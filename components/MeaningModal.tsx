@@ -197,7 +197,7 @@ function DoubtSection({
   const { triggerSync } = useSync();
   const [query, setQuery] = useState("");
   const [isAsking, setIsAsking] = useState(false);
-  const [model, setModel] = useState("gemini-1.5-flash");
+  const [model, setModel] = useState("gemini-2.5-flash");
 
   useEffect(() => {
     if (config.geminiModel) setModel(config.geminiModel);
@@ -252,7 +252,7 @@ function DoubtSection({
         geminiPrePrompt: prePrompt,
       } = config;
 
-      const activeModel = model || configModel || "gemini-1.5-flash";
+      const activeModel = model || configModel || "gemini-2.5-flash"; // Use local selection, fallback to global setting, then default
       const activePrePrompt = prePrompt;
 
       const controller = new AbortController();

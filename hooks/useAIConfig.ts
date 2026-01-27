@@ -13,7 +13,7 @@ export interface AIConfig {
 export function useAIConfig() {
   const [config, setConfig] = useState<AIConfig>({
     geminiKey: "",
-    geminiModel: "gemini-1.5-flash", // Default
+    geminiModel: "gemini-2.5-flash", // Default updated to 2.5 Flash
     geminiPrePrompt: "",
   });
   const [loading, setLoading] = useState(true);
@@ -39,7 +39,7 @@ export function useAIConfig() {
       const finalModel =
         dbModel?.value ||
         localStorage.getItem("gemini_model") ||
-        "gemini-1.5-flash";
+        "gemini-2.5-flash";
       const finalPrompt =
         dbPrompt?.value || localStorage.getItem("gemini_pre_prompt") || "";
 

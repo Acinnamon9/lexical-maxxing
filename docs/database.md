@@ -36,6 +36,12 @@ Stores conversations with the AI.
 - **Compound Index**: `[wordId+folderId]`
 - **Sorting Index**: `createdAt`
 
+### 7. `userSettings` (Synced Config)
+Stores user preferences that sync across devices.
+- **Fields**: `id` (key), `value`, `updatedAt`
+- **Primary Index**: `id`
+- **Synced**: Yes, via Supabase.
+
 ## Key Data Patterns
 
 ### The "Contextual Key"

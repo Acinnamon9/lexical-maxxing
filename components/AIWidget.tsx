@@ -456,9 +456,9 @@ export default function AIWidget() {
                         {pendingActions.map((action, i) => (
                           <li key={i}>
                             {action.type === "CREATE_FOLDER" &&
-                              `Create folder "${action.payload.name}"`}
+                              `Create folder "${action.payload?.name || "unnamed"}"`}
                             {action.type === "ADD_WORD" &&
-                              `Add "${action.payload.term}" to ${action.payload.folderName || "current folder"}`}
+                              `Add "${action.payload?.term || "unknown term"}" to ${action.payload?.folderName || "current folder"}`}
                           </li>
                         ))}
                       </ul>

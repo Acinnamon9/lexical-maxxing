@@ -13,11 +13,13 @@ Lexical Maxxing is an **Offline-First Domain-Specific Vocabulary Builder**. It i
 
 ## Design Philosophy
 
-### 1. Offline-First
-All user data (folders, words, meanings, and AI conversation history) is stored locally in the browser using IndexedDB. This ensures:
-- Instant feedback (zero latency for database operations).
-- Complete privacy (your dictionary stays on your device).
-- Functional usage without an internet connection (except for AI clarifications).
+### 1. Offline-First & Cross-Device Sync
+All user data (folders, words, meanings) is stored locally in **IndexedDB** (via Dexie.js) for zero-latency interactions.
+
+Replication to the cloud happens in the background via **Supabase**:
+- **Pull**: On login/load, the app fetches the latest state from Postgres.
+- **Push**: Critical actions (save settings, add word, agent interactions) trigger an immediate push to Supabase.
+- **Conflict Resolution**: Last-write-wins (LWW) per field.
 
 ### 2. Domain-Driven Organization
 Unlike general-purpose dictionaries, Lexical Maxxing focuses on **Contextual Meaning**. A word like "Current" can have vastly different meanings in *Oceanography* vs. *Electronics*. The app enforces this by:
@@ -25,8 +27,8 @@ Unlike general-purpose dictionaries, Lexical Maxxing focuses on **Contextual Mea
 - Splitting folders into manageable **Chunks** (15 words each).
 - Attaching meanings specifically to a `[wordId + folderId]` pair.
 
-### 3. AI-Augmented Learning
-The app doesn't just provide static definitions. It uses Gemini to provide:
-- **Nuanced Clarifications**: Answering specific user doubts about a word's usage.
-- **Context Awareness**: The AI "sees" the other meanings in your folder to provide a better explanation.
-- **Customizable Persona**: Users can define a "Pre-prompt" to control the AI's tone and depth.
+### 3. Agentic AI Architecture
+The app uses a **Two-Agent System** to manage complexity:
+- **The Architect**: A strict State Controller responsible for executing database mutations (Create Folder, Add Word). It is forbidden from "teaching".
+- **The Scholar**: A read-only Knowledge Assistant that handles explanations and user doubts without risking database corruption.
+- **Intent Router**: A heuristic layer that routes user queries to the correct agent.

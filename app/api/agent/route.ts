@@ -1,116 +1,155 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
 
+import {
+  ARCHITECT_SYSTEM_PROMPT,
+  SCHOLAR_SYSTEM_PROMPT,
+} from "@/lib/ai/prompts";
+
 interface AgentRequest {
-    query: string;
-    apiKey?: string;
-    model?: string;
-    currentContext?: {
-        folderId: string | null;
-        folderName: string | null;
-    };
-    toolResults?: Record<string, string>;
+  query: string;
+  apiKey?: string;
+  model?: string;
+  currentContext?: {
+    folderId: string | null;
+    folderName: string | null;
+  };
+  toolResults?: Record<string, string>;
+}
+
+// Simple heuristic for intent classification
+function classifyIntent(query: string): "ARCHITECT" | "SCHOLAR" {
+  const q = query.toLowerCase();
+
+  // Strong action signals -> Architect
+  const actionVerbs = [
+    "create",
+    "make",
+    "add",
+    "put",
+    "move",
+    "delete",
+    "rename",
+    "organize",
+  ];
+  if (actionVerbs.some((v) => q.includes(v))) {
+    return "ARCHITECT";
+  }
+
+  // Question signals -> Scholar
+  const questionWords = [
+    "what",
+    "why",
+    "how",
+    "explain",
+    "define",
+    "meaning",
+    "difference",
+  ];
+  if (q.endsWith("?") || questionWords.some((w) => q.includes(w))) {
+    return "SCHOLAR";
+  }
+
+  // Specific "Where does X go?" is tricky.
+  // "Where should I put X?" -> Scholar (Expert advice)
+  // "Put X in Y" -> Architect
+  if (q.includes("where")) return "SCHOLAR";
+
+  // Default to Scholar for safety (don't accidentally mutate)
+  return "SCHOLAR";
 }
 
 export async function POST(req: Request) {
-    try {
-        const body: AgentRequest = await req.json();
-        const { query, apiKey, model: requestedModel, currentContext } = body;
+  try {
+    const body: AgentRequest = await req.json();
+    const { query, apiKey, model: requestedModel, currentContext } = body;
 
-        // Prioritize client-provided key, then env var
-        const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+    // Prioritize client-provided key, then env var
+    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
 
-        if (!finalApiKey) {
-            return NextResponse.json(
-                { error: "API Key is required. Please set it in Settings." },
-                { status: 401 }
-            );
-        }
+    if (!finalApiKey) {
+      return NextResponse.json(
+        { error: "API Key is required. Please set it in Settings." },
+        { status: 401 },
+      );
+    }
 
-        const selectedModel = requestedModel || "gemini-1.5-flash";
-        const genAI = new GoogleGenerativeAI(finalApiKey);
-        const model = genAI.getGenerativeModel({
-            model: selectedModel,
-            generationConfig: {
-                responseMimeType: "application/json",
-            }
-        });
+    const selectedModel = requestedModel || "gemini-2.5-flash";
+    const genAI = new GoogleGenerativeAI(finalApiKey);
+    const model = genAI.getGenerativeModel({
+      model: selectedModel,
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
+    });
 
-        const systemPrompt = `
-      You are "The Architect", a sophisticated AI assistant and app controller integrated into "Lexical Maxxing". Lexical Maxxing is a tool that enables people to make folders and add words to them. Folders can have sub folders as well. 
-      
-      ### Core Mission
-      1. **App Controller**: Translate user requests into structured JSON actions to modify their dictionary (folders, words).
-      2. **Knowledge Assistant**: Answer general questions, explain concepts, provide definitions, and suggest classifications in a helpful, concise way.
+    const intent = classifyIntent(query);
+    console.log(
+      `Agent API: Intent classified as ${intent} for query: "${query}"`,
+    );
 
-      ### Interaction Style
-      - Always provide a natural language response in the "message" field. Use Markdown for formatting (lists, bold, etc.) to make it readable.
-      - If the user asks a question (e.g., "What is Stoicism?" or "Suggest subfolders for Philosophy"), answer it thoroughly in the "message" field.
-      - If the user wants to perform an action (e.g., "Create these as folders"), populate the "actions" array.
-      - **IMPORTANT**: Before creating folders, use GET_FOLDER_STRUCTURE to check existing folders and avoid duplicates.
+    let systemPrompt = "";
 
-      ### Available Actions
-      
-      **Write Actions (require user confirmation):**
-      1. CREATE_FOLDER
-         - Payload: { name: string, description?: string, parentTempId?: string, parentName?: string, tempId?: string }
-         - Use 'tempId' to allow subsequent actions in the same request to reference this folder.
-      2. ADD_WORD
-         - Payload: { term: string, folderName?: string, parentTempId?: string }
-
-      **Read Actions (executed automatically, results returned to you):**
-      3. GET_FOLDER_STRUCTURE
-         - Payload: { parentId?: string }
-         - Returns: List of folders (id, name, parentId). If parentId is null/omitted, returns ALL folders.
-         - Use this BEFORE creating folders to check for duplicates.
-      4. SEARCH_FOLDERS
-         - Payload: { query: string }
-         - Returns: Folders matching the search query.
-         - Use this when user mentions a folder by name that isn't in current context.
+    if (intent === "ARCHITECT") {
+      systemPrompt = `
+      ${ARCHITECT_SYSTEM_PROMPT}
 
       ### Context
       Current viewing context: "${currentContext?.folderName || "Home/Root"}".
       If they say "here", they mean this folder.
       ${body.toolResults ? `\n### Tool Results from Previous Actions:\n${JSON.stringify(body.toolResults, null, 2)}` : ""}
+      `;
+    } else {
+      // Scholar Mode
+      systemPrompt = `
+      ${SCHOLAR_SYSTEM_PROMPT}
 
-      ### Response Format
-      You MUST return valid JSON with:
-      1. "actions": [] (empty if no structural changes needed).
-      2. "message": "Your text response, explanation, or confirmation (supports Markdown)."
+      ### Context
+      Current viewing context: "${currentContext?.folderName || "Home/Root"}".
+      `;
+    }
 
-      
-    `;
-
-        const fullPrompt = `
+    const fullPrompt = `
       ${systemPrompt}
 
       User Request: "${query}"
     `;
 
-        console.log(`Agent API: Processing request: "${query}"`);
+    console.log(`Agent API: Processing request with ${intent} persona.`);
 
-        const result = await model.generateContent(fullPrompt);
-        const responseText = result.response.text();
+    const result = await model.generateContent(fullPrompt);
+    const responseText = result.response.text();
 
-        try {
-            const jsonResponse = JSON.parse(responseText);
-            return NextResponse.json(jsonResponse);
-        } catch (e) {
-            console.error("Agent API: Failed to parse JSON", responseText);
-            return NextResponse.json(
-                {
-                    actions: [],
-                    message: "I understood your request but had trouble structuring the plan. Please try again."
-                },
-                { status: 500 }
-            );
-        }
+    try {
+      const jsonResponse = JSON.parse(responseText);
 
-    } catch (error: any) {
-        console.error("Agent API Error:", error);
-        return NextResponse.json(
-            { error: error.message || "Internal Server Error" },
-            { status: 500 }
-        );
+      // Safety Check: If Scholar returns actions, strip them
+      if (
+        intent === "SCHOLAR" &&
+        jsonResponse.actions &&
+        jsonResponse.actions.length > 0
+      ) {
+        console.warn("Scholar tried to perform actions. Blocking.");
+        jsonResponse.actions = [];
+      }
+
+      return NextResponse.json(jsonResponse);
+    } catch (e) {
+      console.error("Agent API: Failed to parse JSON", responseText);
+      return NextResponse.json(
+        {
+          actions: [],
+          message:
+            "I understood your request but had trouble structuring the plan. Please try again.",
+        },
+        { status: 500 },
+      );
     }
+  } catch (error: any) {
+    console.error("Agent API Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal Server Error" },
+      { status: 500 },
+    );
+  }
 }
