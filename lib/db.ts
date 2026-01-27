@@ -6,7 +6,10 @@ import {
   WordState,
   Production,
   WordMeaning,
+  WordMeaning,
   Doubt,
+  AgentSession,
+  AgentMessage,
 } from "./types";
 import {
   SEED_FOLDERS,
@@ -23,12 +26,14 @@ export class LexicalDatabase extends Dexie {
   productions!: Table<Production, string>;
   wordMeanings!: Table<WordMeaning, string>;
   doubts!: Table<Doubt, string>;
+  agentSessions!: Table<AgentSession, string>;
+  agentMessages!: Table<AgentMessage, string>;
 
   constructor() {
     super("LexicalDatabase");
 
     // Schema Definition
-    this.version(4).stores({
+    this.version(6).stores({
       folders: "id, parentId",
       words: "id, &term", // Indexed and Unique
       wordFolders: "[wordId+folderId], folderId, wordId", // Composite Index
@@ -36,6 +41,8 @@ export class LexicalDatabase extends Dexie {
       productions: "id, [wordId+folderId], wordId, folderId",
       wordMeanings: "id, [wordId+folderId], wordId, folderId",
       doubts: "id, [wordId+folderId], status, createdAt",
+      agentSessions: "id, createdAt, updatedAt",
+      agentMessages: "id, sessionId, createdAt",
     });
 
     // Seeding Logic

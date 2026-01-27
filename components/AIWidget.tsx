@@ -6,26 +6,45 @@ import { useAgentAction, AgentAction } from "@/hooks/useAgentAction";
 import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-interface Message {
-    id: string;
-    role: "user" | "agent" | "system";
-    text: string;
-}
+import { v4 as uuidv4 } from "uuid";
+import { AgentMessage, AgentSession } from "@/lib/types";
+
+// Removed local Message interface in favor of AgentMessage
 
 export default function AIWidget() {
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [isProcessing, setIsProcessing] = useState(false);
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: "welcome",
-            role: "agent",
-            text: "I'm the Architect. I can build folders and add words for you. Try 'Create a Biology folder'.",
-        },
-    ]);
-    const [pendingActions, setPendingActions] = useState<AgentAction[] | null>(null);
+    const [showHistory, setShowHistory] = useState(false);
+    const [sessionId, setSessionId] = useState<string | null>(null);
 
+    // Load active session on mount
+    useEffect(() => {
+        const loadLastSession = async () => {
+            const lastSession = await db.agentSessions.orderBy("updatedAt").last();
+            if (lastSession) {
+                setSessionId(lastSession.id);
+            }
+        };
+        loadLastSession();
+    }, []);
+
+    // Reactive Messages
+    const messages = useLiveQuery(
+        () => (sessionId ? db.agentMessages.where("sessionId").equals(sessionId).sortBy("createdAt") : []),
+        [sessionId]
+    );
+
+    // Reactive History
+    const sessions = useLiveQuery(
+        () => db.agentSessions.orderBy("updatedAt").reverse().toArray(),
+        []
+    );
+
+    const [pendingActions, setPendingActions] = useState<AgentAction[] | null>(null);
     const { executePlan } = useAgentAction();
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -41,28 +60,52 @@ export default function AIWidget() {
         if (scrollRef.current) {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [messages, isOpen]);
+    }, [messages, isOpen, showHistory]);
 
     const handleSend = async () => {
         if (!query.trim()) return;
 
-        const userMsg: Message = {
+        let activeSessionId = sessionId;
+        const currentTimestamp = Date.now();
+
+        // Create new session if none exists
+        if (!activeSessionId) {
+            activeSessionId = crypto.randomUUID();
+            await db.agentSessions.add({
+                id: activeSessionId,
+                title: query.slice(0, 40) + (query.length > 40 ? "..." : ""),
+                createdAt: currentTimestamp,
+                updatedAt: currentTimestamp,
+            });
+            setSessionId(activeSessionId);
+        } else {
+            await db.agentSessions.update(activeSessionId, { updatedAt: currentTimestamp });
+        }
+
+        // Add User Message
+        await db.agentMessages.add({
             id: crypto.randomUUID(),
+            sessionId: activeSessionId,
             role: "user",
             text: query,
-        };
+            createdAt: currentTimestamp,
+        });
 
-        setMessages((prev) => [...prev, userMsg]);
+        const userQuery = query; // Capture for API call
         setQuery("");
         setIsProcessing(true);
 
         try {
-            // 1. Get Plan from Agent
+            const apiKey = localStorage.getItem("gemini_api_key");
+            const model = localStorage.getItem("gemini_model") || "gemini-1.5-flash";
+
             const res = await fetch("/api/agent", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    query: userMsg.text,
+                    query: userQuery,
+                    apiKey: apiKey || undefined,
+                    model: model,
                     currentContext: {
                         folderId: folderId || null,
                         folderName: currentFolder?.name || null,
@@ -74,55 +117,89 @@ export default function AIWidget() {
 
             if (!res.ok) throw new Error(data.error || "Failed to contact Architect");
 
-            const agentMsg: Message = {
-                id: crypto.randomUUID(),
-                role: "agent",
-                text: data.message || "I'm on it.",
-            };
-            setMessages((prev) => [...prev, agentMsg]);
+            const agentResponseText = data.message || "I'm on it.";
 
-            // 2. Propose Plan (Don't Execute Yet)
+            // Add Agent Message
+            await db.agentMessages.add({
+                id: crypto.randomUUID(),
+                sessionId: activeSessionId,
+                role: "agent",
+                text: agentResponseText,
+                createdAt: Date.now(),
+            });
+
             if (data.actions && data.actions.length > 0) {
                 setPendingActions(data.actions);
             }
 
         } catch (e: any) {
-            const errorMsg: Message = {
+            await db.agentMessages.add({
                 id: crypto.randomUUID(),
+                sessionId: activeSessionId,
                 role: "system",
                 text: `Error: ${e.message}`,
-            };
-            setMessages((prev) => [...prev, errorMsg]);
+                createdAt: Date.now(),
+            });
         } finally {
             setIsProcessing(false);
         }
     };
 
     const handleConfirm = async () => {
-        if (!pendingActions) return;
+        if (!pendingActions || !sessionId) return;
         setIsProcessing(true);
-        setPendingActions(null); // Clear pending UI
+        setPendingActions(null);
 
         try {
             const logs = await executePlan(pendingActions);
             if (logs.length > 0) {
-                const systemMsg: Message = {
+                await db.agentMessages.add({
                     id: crypto.randomUUID(),
+                    sessionId: sessionId,
                     role: "system",
                     text: `✅ Done! ${logs.join(", ")}`,
-                };
-                setMessages((prev) => [...prev, systemMsg]);
+                    createdAt: Date.now(),
+                });
             }
         } catch (e: any) {
-            setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: `Error: ${e.message}` }]);
+            await db.agentMessages.add({
+                id: crypto.randomUUID(),
+                sessionId: sessionId,
+                role: "system",
+                text: `Error: ${e.message}`,
+                createdAt: Date.now(),
+            });
         } finally {
             setIsProcessing(false);
         }
     };
 
-    const handleCancel = () => {
+    const handleCancel = async () => {
         setPendingActions(null);
-        setMessages((prev) => [...prev, { id: crypto.randomUUID(), role: "system", text: "Action cancelled." }]);
+        if (sessionId) {
+            await db.agentMessages.add({
+                id: crypto.randomUUID(),
+                sessionId: sessionId,
+                role: "system",
+                text: "Action cancelled.",
+                createdAt: Date.now(),
+            });
+        }
+    };
+
+    const handleDeleteMessage = (id: string) => {
+        db.agentMessages.delete(id);
+    };
+
+    const handleNewChat = () => {
+        setSessionId(null);
+        setPendingActions(null);
+        setShowHistory(false);
+    };
+
+    const selectSession = (id: string) => {
+        setSessionId(id);
+        setShowHistory(false);
     };
 
     return (
@@ -140,82 +217,149 @@ export default function AIWidget() {
                             <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                                 <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                                    The Architect
+                                    {showHistory ? "History" : "The Architect"}
                                 </span>
                             </div>
-                            <button
-                                onClick={() => setIsOpen(false)}
-                                className="text-muted-foreground hover:text-foreground"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setShowHistory(!showHistory)}
+                                    className="p-1 text-muted-foreground hover:text-indigo-500 transition-colors"
+                                    title="Chat History"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20v-6M6 20V10M18 20V4" /></svg>
+                                </button>
+                                <button
+                                    onClick={handleNewChat}
+                                    className="p-1 text-muted-foreground hover:text-green-500 transition-colors"
+                                    title="New Chat"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14" /></svg>
+                                </button>
+                                <button
+                                    onClick={() => setIsOpen(false)}
+                                    className="p-1 text-muted-foreground hover:text-foreground"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                </button>
+                            </div>
                         </div>
 
-                        {/* Messages */}
-                        <div
-                            ref={scrollRef}
-                            className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/5 min-h-[300px]"
-                        >
-                            {messages.map((m) => (
-                                <div
-                                    key={m.id}
-                                    className={`flex ${m.role === "user" ? "justify-end" : "justify-start"
-                                        }`}
-                                >
-                                    <div
-                                        className={`max-w-[85%] rounded-lg p-3 text-sm ${m.role === "user"
-                                            ? "bg-foreground text-background"
-                                            : m.role === "system"
-                                                ? "bg-red-500/10 text-red-600 text-xs font-mono"
-                                                : "bg-muted text-foreground border border-border"
-                                            }`}
-                                    >
-                                        {m.text}
-                                    </div>
+                        {/* Content Area */}
+                        {showHistory ? (
+                            <div className="flex-1 overflow-y-auto p-2 bg-muted/5 min-h-[300px]">
+                                {sessions?.length === 0 && <p className="text-center text-xs text-muted-foreground p-4">No history yet.</p>}
+                                <div className="space-y-1">
+                                    {sessions?.map(session => (
+                                        <button
+                                            key={session.id}
+                                            onClick={() => selectSession(session.id)}
+                                            className={`w-full text-left p-2 rounded-lg text-xs hover:bg-muted/50 transition-colors flex flex-col gap-1 ${sessionId === session.id ? "bg-indigo-500/10 border border-indigo-500/20" : ""}`}
+                                        >
+                                            <span className="font-medium truncate">{session.title}</span>
+                                            <span className="text-[10px] text-muted-foreground">{new Date(session.updatedAt).toLocaleDateString()}</span>
+                                        </button>
+                                    ))}
                                 </div>
-                            ))}
-
-                            {/* Verification UI */}
-                            {pendingActions && (
-                                <div className="flex justify-start">
-                                    <div className="bg-muted border border-indigo-500/30 rounded-lg p-3 text-sm flex flex-col gap-2 max-w-[85%]">
-                                        <p className="font-semibold text-indigo-500 text-xs uppercase tracking-wide">Proposed Plan:</p>
-                                        <ul className="list-disc pl-4 space-y-1 text-xs text-muted-foreground">
-                                            {pendingActions.map((action, i) => (
-                                                <li key={i}>
-                                                    {action.type === "CREATE_FOLDER" && `Create folder "${action.payload.name}"`}
-                                                    {action.type === "ADD_WORD" && `Add "${action.payload.term}" to ${action.payload.folderName || "current folder"}`}
-                                                </li>
-                                            ))}
-                                        </ul>
-                                        <div className="flex gap-2 mt-2">
-                                            <button
-                                                onClick={handleConfirm}
-                                                className="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 transition-colors"
-                                            >
-                                                Confirm
-                                            </button>
-                                            <button
-                                                onClick={handleCancel}
-                                                className="bg-transparent border border-border text-foreground px-3 py-1.5 rounded text-xs font-bold hover:bg-muted transition-colors"
-                                            >
-                                                Cancel
-                                            </button>
+                            </div>
+                        ) : (
+                            <div
+                                ref={scrollRef}
+                                className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/5 min-h-[300px]"
+                            >
+                                {!messages || messages.length === 0 ? (
+                                    <div className="flex justify-start">
+                                        <div className="max-w-[85%] rounded-lg p-3 text-sm bg-muted text-foreground border border-border">
+                                            I'm the Architect. I can build folders and add words for you. Try 'Create a Biology folder'.
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    messages.map((m) => (
+                                        <div
+                                            key={m.id}
+                                            className={`flex group/msg relative ${m.role === "user" ? "justify-end" : "justify-start"
+                                                }`}
+                                        >
+                                            <div
+                                                className={`max-w-[85%] rounded-lg p-3 text-sm relative ${m.role === "user"
+                                                    ? "bg-foreground text-background"
+                                                    : m.role === "system"
+                                                        ? "bg-red-500/10 text-red-600 text-xs font-mono"
+                                                        : "bg-muted text-foreground border border-border"
+                                                    }`}
+                                            >
+                                                {m.role === "agent" ? (
+                                                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                                                        <ReactMarkdown
+                                                            remarkPlugins={[remarkGfm]}
+                                                            components={{
+                                                                p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                                                                ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                                                                li: ({ children }) => <li className="mb-0">{children}</li>,
+                                                            }}
+                                                        >
+                                                            {m.text}
+                                                        </ReactMarkdown>
+                                                    </div>
+                                                ) : (
+                                                    m.text
+                                                )}
 
-                            {isProcessing && (
-                                <div className="flex justify-start">
-                                    <div className="bg-muted text-foreground border border-border rounded-lg p-3 text-xs italic flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                                        <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                                                <button
+                                                    onClick={() => handleDeleteMessage(m.id)}
+                                                    className={`absolute -top-2 p-1 bg-background border border-border rounded-full opacity-0 group-hover/msg:opacity-100 transition-opacity hover:text-red-500 shadow-sm z-10 ${m.role === "user" ? "-left-2" : "-right-2"
+                                                        }`}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+
+                                {/* Verification UI */}
+                                {pendingActions && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-muted border border-indigo-500/30 rounded-lg p-3 text-sm flex flex-col gap-2 max-w-[85%]">
+                                            <p className="font-semibold text-indigo-500 text-xs uppercase tracking-wide">Proposed Plan:</p>
+                                            <ul className="list-disc pl-4 space-y-1 text-xs text-muted-foreground">
+                                                {pendingActions.map((action, i) => (
+                                                    <li key={i}>
+                                                        {action.type === "CREATE_FOLDER" && `Create folder "${action.payload.name}"`}
+                                                        {action.type === "ADD_WORD" && `Add "${action.payload.term}" to ${action.payload.folderName || "current folder"}`}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <div className="flex gap-2 mt-2">
+                                                <button
+                                                    onClick={handleConfirm}
+                                                    className="bg-indigo-600 text-white px-3 py-1.5 rounded text-xs font-bold hover:bg-indigo-700 transition-colors"
+                                                >
+                                                    Confirm
+                                                </button>
+                                                <button
+                                                    onClick={handleCancel}
+                                                    className="bg-transparent border border-border text-foreground px-3 py-1.5 rounded text-xs font-bold hover:bg-muted transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+
+                                {isProcessing && (
+                                    <div className="flex justify-start">
+                                        <div className="bg-muted text-foreground border border-border rounded-lg p-3 text-xs italic flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                                        </div>
+                                    </div>
+                                )}
+
+
+                            </div>
+                        )}
 
                         {/* Input */}
                         <div className="p-3 border-t border-border bg-background">
@@ -253,6 +397,6 @@ export default function AIWidget() {
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5" /><path d="M8.5 8.5v.01" /><path d="M16 12v.01" /><path d="M12 16v.01" /></svg>
                 )}
             </motion.button>
-        </div>
+        </div >
     );
 }

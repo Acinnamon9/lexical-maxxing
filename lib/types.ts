@@ -69,3 +69,18 @@ export interface Doubt {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface AgentSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AgentMessage {
+  id: string;
+  sessionId: string;
+  role: "user" | "agent" | "system";
+  text: string;
+  createdAt: number;
+}
