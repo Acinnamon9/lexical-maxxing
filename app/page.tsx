@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import ImportModal from "@/components/import/ImportModal";
 import CreateFolderModal from "@/components/folders/CreateFolderModal";
 import AuthModal from "@/components/AuthModal";
-import { syncData } from "@/lib/sync";
+import { useSync } from "@/hooks/useSync";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 
@@ -36,23 +36,17 @@ export default function Home() {
   const [showCreate, setShowCreate] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
+  const { isSyncing, triggerSync } = useSync();
   const [importTarget, setImportTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
 
-  const handleSync = async (userId: string) => {
-    setIsSyncing(true);
-    await syncData(userId);
-    setIsSyncing(false);
-  };
-
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
         setUser(data.user);
-        handleSync(data.user.id);
+        triggerSync();
       }
     });
 
@@ -60,7 +54,7 @@ export default function Home() {
       (event, session) => {
         if (session?.user) {
           setUser(session.user);
-          handleSync(session.user.id);
+          triggerSync();
         } else {
           setUser(null);
         }
@@ -87,7 +81,7 @@ export default function Home() {
         <div className="flex gap-4 items-center">
           {user ? (
             <button
-              onClick={() => handleSync(user.id)}
+              onClick={() => triggerSync()}
               disabled={isSyncing}
               className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
             >
@@ -248,7 +242,7 @@ export default function Home() {
         onClose={() => setShowAuth(false)}
         onSuccess={(u) => {
           setUser(u);
-          handleSync(u.id);
+          triggerSync();
         }}
       />
     </div>

@@ -16,6 +16,7 @@ import remarkGfm from "remark-gfm";
 import { v4 as uuidv4 } from "uuid";
 import { AgentMessage, AgentSession } from "@/lib/types";
 import { useAIConfig } from "@/hooks/useAIConfig";
+import { useSync } from "@/hooks/useSync";
 
 // Removed local Message interface in favor of AgentMessage
 
@@ -28,6 +29,7 @@ export default function AIWidget() {
 
   // AI Configuration from centralized hook
   const { config } = useAIConfig();
+  const { triggerSync } = useSync();
 
   // Load active session on mount
   useEffect(() => {
@@ -197,6 +199,7 @@ export default function AIWidget() {
       });
     } finally {
       setIsProcessing(false);
+      triggerSync();
     }
   };
 
@@ -226,6 +229,7 @@ export default function AIWidget() {
       });
     } finally {
       setIsProcessing(false);
+      triggerSync(); // Sync after executing plan
     }
   };
 

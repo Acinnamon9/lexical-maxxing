@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useAIConfig } from "@/hooks/useAIConfig";
+import { useSync } from "@/hooks/useSync";
 
 interface MeaningModalProps {
   word: EnrichedWord;
@@ -193,6 +194,7 @@ function DoubtSection({
   wordTerm: string;
 }) {
   const { config } = useAIConfig();
+  const { triggerSync } = useSync();
   const [query, setQuery] = useState("");
   const [isAsking, setIsAsking] = useState(false);
   const [model, setModel] = useState("gemini-1.5-flash");
@@ -231,18 +233,19 @@ function DoubtSection({
       updatedAt: now,
     });
 
+    triggerSync(); // Sync optimistic save
+
     setQuery("");
 
     // 2. Call AI (If Online)
     try {
-      // Get context (meanings)
+      // ... (keep existing logic) ...
       const meanings = await db.wordMeanings
         .where("[wordId+folderId]")
         .equals([wordId, folderId])
         .toArray();
       const contextText = meanings.map((m) => m.content).join("; ");
 
-      // Fetch settings from DB
       const {
         geminiKey: apiKey,
         geminiModel: configModel,
@@ -293,16 +296,19 @@ function DoubtSection({
       });
     } finally {
       setIsAsking(false);
+      triggerSync(); // Sync final response
     }
   };
 
   const handleDeleteDoubt = async (id: string) => {
     await db.doubts.delete(id);
+    triggerSync();
   };
 
   const handleClearAll = async () => {
     if (!doubts) return;
     await Promise.all(doubts.map((d) => db.doubts.delete(d.id)));
+    triggerSync();
   };
 
   return (

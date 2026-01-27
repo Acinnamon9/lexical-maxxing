@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { db } from "@/lib/db";
+import { useSync } from "@/hooks/useSync";
 
 export interface AIConfig {
   geminiKey: string;
@@ -16,6 +17,7 @@ export function useAIConfig() {
     geminiPrePrompt: "",
   });
   const [loading, setLoading] = useState(true);
+  const { triggerSync } = useSync();
 
   useEffect(() => {
     loadSettings();
@@ -64,6 +66,7 @@ export function useAIConfig() {
       value: key,
       updatedAt: Date.now(),
     });
+    triggerSync();
   };
 
   const updateModel = async (model: string) => {
@@ -74,6 +77,7 @@ export function useAIConfig() {
       value: model,
       updatedAt: Date.now(),
     });
+    triggerSync();
   };
 
   const updatePrePrompt = async (prompt: string) => {
@@ -84,6 +88,7 @@ export function useAIConfig() {
       value: prompt,
       updatedAt: Date.now(),
     });
+    triggerSync();
   };
 
   return {
