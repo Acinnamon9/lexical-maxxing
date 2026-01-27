@@ -12,6 +12,7 @@
     "@auth/prisma-adapter": "^2.11.1",
     "@google/generative-ai": "^0.24.1",
     "@prisma/client": "^7.3.0",
+    "@supabase/supabase-js": "^2.93.1",
     "bcryptjs": "^3.0.3",
     "dexie": "^4.2.1",
     "dexie-react-hooks": "^4.2.0",

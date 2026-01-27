@@ -3,9 +3,12 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import ImportModal from "@/components/import/ImportModal";
 import CreateFolderModal from "@/components/folders/CreateFolderModal";
+import AuthModal from "@/components/AuthModal";
+import { syncData } from "@/lib/sync";
+import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 
 const container = {
@@ -26,10 +29,39 @@ const item = {
 export default function Home() {
   const folders = useLiveQuery(() => db.folders.toCollection().filter(f => !f.parentId).toArray());
   const [showCreate, setShowCreate] = useState(false);
+  const [showAuth, setShowAuth] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [importTarget, setImportTarget] = useState<{
     id: string;
     name: string;
   } | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser(data.user);
+        handleSync(data.user.id);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setUser(session.user);
+        handleSync(session.user.id);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => authListener.subscription.unsubscribe();
+  }, []);
+
+  const handleSync = async (userId: string) => {
+    setIsSyncing(true);
+    await syncData(userId);
+    setIsSyncing(false);
+  };
 
   if (!folders) return <div className="p-8">Loading...</div>;
 
@@ -46,6 +78,31 @@ export default function Home() {
           </p>
         </motion.div>
         <div className="flex gap-4 items-center">
+          {user ? (
+            <button
+              onClick={() => handleSync(user.id)}
+              disabled={isSyncing}
+              className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
+            >
+              {isSyncing ? (
+                <>
+                  <span className="animate-spin">↻</span> Syncing...
+                </>
+              ) : (
+                <>
+                  <span>☁</span> Synced
+                </>
+              )}
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAuth(true)}
+              className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Login / Sync
+            </button>
+          )}
+          <div className="h-4 w-[1px] bg-border mx-1" />
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-full text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
@@ -181,6 +238,15 @@ export default function Home() {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onSuccess={() => { }}
+      />
+
+      <AuthModal
+        isOpen={showAuth}
+        onClose={() => setShowAuth(false)}
+        onSuccess={(u) => {
+          setUser(u);
+          handleSync(u.id);
+        }}
       />
     </div >
   );
