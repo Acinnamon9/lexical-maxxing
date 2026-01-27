@@ -33,8 +33,8 @@ export class LexicalDatabase extends Dexie {
     super("LexicalDatabase");
 
     // Schema Definition
-    this.version(6).stores({
-      folders: "id, parentId",
+    this.version(7).stores({
+      folders: "id, name, parentId",
       words: "id, &term", // Indexed and Unique
       wordFolders: "[wordId+folderId], folderId, wordId", // Composite Index
       wordStates: "wordId, nextReviewAt",
