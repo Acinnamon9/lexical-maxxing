@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { EnrichedWord } from "@/lib/types";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface MeaningModalProps {
   word: EnrichedWord;
@@ -53,12 +55,12 @@ export default function MeaningModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-8 max-w-lg w-full shadow-2xl border dark:border-zinc-800 relative max-h-[90vh] overflow-y-auto"
+            className="bg-background rounded-2xl p-8 max-w-lg w-full shadow-2xl border border-border relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -81,23 +83,23 @@ export default function MeaningModal({
             </h2>
 
             <div className="space-y-4">
-              <h3 className="text-xs uppercase font-bold text-zinc-400 tracking-wider">
+              <h3 className="text-xs uppercase font-bold text-muted-foreground tracking-wider">
                 Contextual Meanings
               </h3>
               {meanings && meanings.length > 0 ? (
-                <ul className="list-disc list-outside pl-4 space-y-2 text-zinc-700 dark:text-zinc-300">
+                <ul className="list-disc list-outside pl-4 space-y-2 text-foreground/80">
                   {meanings.map((m) => (
                     <li key={m.id}>{m.content}</li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-zinc-400 italic">
+                <p className="text-muted-foreground italic">
                   No specific meaning recorded for this context.
                 </p>
               )}
             </div>
 
-            <div className="mt-8 pt-6 border-t dark:border-zinc-800 flex justify-between items-center text-xs text-zinc-500">
+            <div className="mt-8 pt-6 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
               <span>Recall Score: {word.state.recallScore}</span>
               <span>
                 Last Reviewed:{" "}
@@ -131,15 +133,21 @@ function DoubtSection({
 }) {
   const [query, setQuery] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+  const [model, setModel] = useState("gemini-1.5-flash");
 
-  // Fetch latest doubt
-  const latestDoubt = useLiveQuery(
+  useEffect(() => {
+    const savedModel = localStorage.getItem("gemini_model");
+    if (savedModel) setModel(savedModel);
+  }, []);
+
+  // Fetch all doubts
+  const doubts = useLiveQuery(
     () =>
       db.doubts
         .where("[wordId+folderId]")
         .equals([wordId, folderId])
-        .reverse()
-        .first(),
+        .sortBy("createdAt")
+        .then(results => results.reverse()), // Most recent at top
     [wordId, folderId],
   );
 
@@ -172,94 +180,183 @@ function DoubtSection({
         .equals([wordId, folderId])
         .toArray();
       const contextText = meanings.map((m) => m.content).join("; ");
+      const apiKey = localStorage.getItem("gemini_api_key");
+      const prePrompt = localStorage.getItem("gemini_pre_prompt");
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
       const res = await fetch("/api/clarify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           word: wordTerm,
           context: contextText || "General Context",
           query: query.trim(),
+          apiKey: apiKey || undefined,
+          model: model,
+          prePrompt: prePrompt || undefined,
         }),
       });
 
+      clearTimeout(timeoutId);
+
       const data = await res.json();
 
-      if (data.response) {
+      if (res.ok && data.response) {
         await db.doubts.update(doubtId, {
           response: data.response,
           status: "resolved",
           updatedAt: Date.now(),
         });
       } else {
-        throw new Error("No response");
+        const errorMsg = data.error || data.response || "No response from AI";
+        throw new Error(errorMsg);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("AI Request Failed", err);
-      // Stays 'pending' - helpful for retry logic later
+      // Update the doubt with the error message so the user knows what happened
+      await db.doubts.update(doubtId, {
+        response: `Error: ${err.message || "Failed to connect to AI"}`,
+        status: "resolved", // Marking as resolved so it stops loading, but with error text
+        updatedAt: Date.now(),
+      });
     } finally {
       setIsAsking(false);
     }
   };
 
+  const handleDeleteDoubt = async (id: string) => {
+    await db.doubts.delete(id);
+  };
+
+  const handleClearAll = async () => {
+    if (!doubts) return;
+    await Promise.all(doubts.map(d => db.doubts.delete(d.id)));
+  };
+
   return (
-    <div className="mt-8 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl p-4 border border-zinc-100 dark:border-zinc-800">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400 mb-3 flex items-center gap-2">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="12"
-          height="12"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-          <path d="M12 17h.01" />
-        </svg>
-        AI Clarification
-      </h3>
+    <div className="mt-8 bg-muted/30 rounded-xl p-4 border border-border">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+            <path d="M12 17h.01" />
+          </svg>
+          AI Clarification
+        </h3>
+        {doubts && doubts.length > 0 && (
+          <button
+            onClick={handleClearAll}
+            className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-red-500 transition-colors flex items-center gap-1"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 6h18" />
+              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+            </svg>
+            Clear All
+          </button>
+        )}
+      </div>
 
-      {latestDoubt ? (
-        <div className="mb-4 space-y-3">
-          <div className="bg-white dark:bg-zinc-900 pp-3 rounded-lg text-sm text-zinc-600 dark:text-zinc-300 border border-zinc-100 dark:border-zinc-800 p-3">
-            <p className="font-semibold text-xs text-zinc-400 mb-1">
-              You Asked:
-            </p>
-            {latestDoubt.query}
-          </div>
+      <div className="max-h-[400px] overflow-y-auto pr-2 space-y-6 mb-6 custom-scrollbar">
+        {doubts && doubts.length > 0 ? (
+          doubts.map((doubt) => (
+            <div key={doubt.id} className="space-y-3 relative group">
+              <button
+                onClick={() => handleDeleteDoubt(doubt.id)}
+                className="absolute -right-2 -top-2 p-1 bg-background border border-border rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-500 shadow-sm z-10"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
 
-          {latestDoubt.status === "pending" ? (
-            <div className="text-xs text-zinc-400 italic animate-pulse flex items-center gap-2">
-              <span className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></span>
-              AI is thinking...
+              <div className="bg-background p-3 rounded-lg text-sm text-foreground/80 border border-border">
+                <p className="font-semibold text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  You Asked:
+                </p>
+                {doubt.query}
+              </div>
+
+              {doubt.status === "pending" ? (
+                <div className="text-xs text-muted-foreground italic animate-pulse flex items-center gap-2 pl-2">
+                  <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
+                  AI is thinking...
+                </div>
+              ) : (
+                <div className="bg-blue-500/5 p-3 rounded-lg text-sm text-foreground/90 border border-blue-500/10 prose prose-sm dark:prose-invert max-w-none overflow-hidden">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                      ul: ({ children }) => <ul className="list-disc pl-4 mb-2">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-2">{children}</ol>,
+                      li: ({ children }) => <li className="mb-1">{children}</li>,
+                      h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
+                      h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
+                      h3: ({ children }) => <h3 className="text-sm font-bold mb-1">{children}</h3>,
+                      code: ({ children }) => (
+                        <code className="bg-blue-500/20 px-1 rounded text-xs font-mono">
+                          {children}
+                        </code>
+                      ),
+                    }}
+                  >
+                    {doubt.response || ""}
+                  </ReactMarkdown>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="bg-blue-50 dark:bg-blue-900/10 p-3 rounded-lg text-sm text-zinc-700 dark:text-zinc-200 border border-blue-100 dark:border-blue-900/30 prose prose-sm dark:prose-invert max-w-none">
-              <div
-                dangerouslySetInnerHTML={{
-                  __html: latestDoubt.response?.replace(/\n/g, "<br/>") || "",
-                }}
-              />
-            </div>
-          )}
-        </div>
-      ) : (
-        <p className="text-xs text-zinc-400 mb-4 italic">
-          Have a doubt? Ask the AI for nuance.
-        </p>
-      )}
+          ))
+        ) : (
+          <p className="text-xs text-muted-foreground italic">
+            Have a doubt? Ask the AI for nuance.
+          </p>
+        )}
+      </div>
 
-      {/* Input Area */}
-      {!latestDoubt || latestDoubt.status === "resolved" ? (
+      {/* Input Area - Always visible for follow up */}
+      <div className="space-y-3 pt-4 border-t border-border/50">
         <div className="flex gap-2">
           <input
             type="text"
-            className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-blue-500/50"
-            placeholder="Ask a question about this word..."
+            className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 ring-blue-500/50"
+            placeholder="Ask a clarifying question..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAsk()}
@@ -267,12 +364,37 @@ function DoubtSection({
           <button
             onClick={handleAsk}
             disabled={isAsking || !query.trim()}
-            className="bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider disabled:opacity-50 hover:opacity-80 transition-opacity"
+            className="bg-foreground text-background px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider disabled:opacity-50 hover:opacity-90 transition-opacity whitespace-nowrap"
           >
-            Ask
+            {isAsking ? "Asking..." : "Ask"}
           </button>
         </div>
-      ) : null}
+
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            Model:
+          </span>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="text-[10px] bg-background border border-border rounded-md px-2 py-1 focus:outline-none focus:ring-1 ring-blue-500/30 cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <optgroup label="Gemini 3">
+              <option value="gemini-3-pro-preview">3 Pro</option>
+              <option value="gemini-3-flash-preview">3 Flash</option>
+            </optgroup>
+            <optgroup label="Gemini 2.5">
+              <option value="gemini-2.5-pro">2.5 Pro</option>
+              <option value="gemini-2.5-flash">2.5 Flash</option>
+              <option value="gemini-2.5-flash-lite">2.5 Lite</option>
+            </optgroup>
+            <optgroup label="Standard">
+              <option value="gemini-1.5-flash">1.5 Flash</option>
+              <option value="gemini-1.5-pro">1.5 Pro</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
     </div>
   );
 }

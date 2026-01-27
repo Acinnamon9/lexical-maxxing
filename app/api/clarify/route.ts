@@ -1,41 +1,63 @@
 import { NextResponse } from "next/server";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface RequestBody {
   word: string;
-  context: string; // The meanings or folder name
+  context: string;
   query: string;
+  apiKey?: string;
+  model?: string;
+  prePrompt?: string;
 }
 
 export async function POST(req: Request) {
   try {
     const body: RequestBody = await req.json();
-    const { word, context, query } = body;
+    const { word, context, query, apiKey, model: requestedModel, prePrompt } = body;
+    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
 
-    // TODO: Connect to Real AI (OpenAI / Gemini)
-    // For now, SIMULATED Persona Response
+    if (!finalApiKey) {
+      console.log("Clarify API: No API key found in request or environment");
+      return NextResponse.json(
+        { response: "I'm sorry, no Gemini API key was found. Please add your key in Settings or contact the administrator." },
+      );
+    }
 
-    const simulatedDelay = new Promise((resolve) => setTimeout(resolve, 800));
-    await simulatedDelay;
+    const selectedModel = requestedModel || "gemini-1.5-flash";
+    console.log(`Clarify API: Starting request for "${word}" using model: ${selectedModel}`);
 
-    const response = `
-### clarification on "${word}"
+    const genAI = new GoogleGenerativeAI(finalApiKey);
+    const model = genAI.getGenerativeModel({ model: selectedModel });
 
-You asked: *"${query}"*
+    const defaultPrompt = `You are an expert etymologist and linguist helping a user understand a specific word or phrase in a learning context. Provide a concise, nuanced clarification of the word based on the user's specific doubt and the provided context. Use Markdown formatting. Use bullet points for comparisons if necessary. Keep the tone encouraging and academic but accessible. If the user's doubt is specifically about how it differs from another word, be precise in the distinction.`;
 
-In the context of **${context}**, here is the nuance:
+    const instructions = prePrompt?.trim() || defaultPrompt;
 
-**${word}** is often misunderstood. 
-- It specifically refers to the *chaotic* element of the system.
-- Unlike in general usage, here it implies a measurable quantity.
+    const fullPrompt = `
+      Instructions: ${instructions}
+      
+      Dynamic Context:
+      Word: "${word}"
+      Context/Existing Meanings: "${context}"
+      User Question: "${query}"
+    `;
 
-*Hope that helps clarify the distinction!*
-    `.trim();
-
-    return NextResponse.json({ response });
-  } catch (error) {
-    console.error("AI Error:", error);
+    try {
+      const result = await model.generateContent(prompt);
+      const response = result.response.text();
+      console.log("Clarify API: Successfully generated response");
+      return NextResponse.json({ response });
+    } catch (modelError: any) {
+      console.error("Clarify API: Gemini model execution failed", modelError);
+      return NextResponse.json(
+        { error: `AI Model Error: ${modelError.message || "Unknown error"}` },
+        { status: 500 },
+      );
+    }
+  } catch (error: any) {
+    console.error("Clarify API: Internal server error", error);
     return NextResponse.json(
-      { error: "Failed to process doubt" },
+      { error: `Internal Error: ${error.message || "Failed to process doubt"}` },
       { status: 500 },
     );
   }

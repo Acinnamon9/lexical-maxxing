@@ -28,14 +28,14 @@ export class LexicalDatabase extends Dexie {
     super("LexicalDatabase");
 
     // Schema Definition
-    this.version(3).stores({
+    this.version(4).stores({
       folders: "id, parentId",
       words: "id, &term", // Indexed and Unique
       wordFolders: "[wordId+folderId], folderId, wordId", // Composite Index
       wordStates: "wordId, nextReviewAt",
       productions: "id, [wordId+folderId], wordId, folderId",
       wordMeanings: "id, [wordId+folderId], wordId, folderId",
-      doubts: "id, [wordId+folderId], status",
+      doubts: "id, [wordId+folderId], status, createdAt",
     });
 
     // Seeding Logic

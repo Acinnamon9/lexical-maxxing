@@ -90,7 +90,7 @@ export default function ImportModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="bg-white dark:bg-zinc-900 rounded-2xl p-6 max-w-lg w-full shadow-2xl border dark:border-zinc-800 flex flex-col max-h-[90vh]"
+            className="bg-background rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-border flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
@@ -99,7 +99,7 @@ export default function ImportModal({
               </h2>
               <button
                 onClick={onClose}
-                className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -119,16 +119,16 @@ export default function ImportModal({
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b dark:border-zinc-800 mb-6 text-sm">
+            <div className="flex border-b border-border mb-6 text-sm">
               <button
                 onClick={() => setMode("paste")}
-                className={`px-4 py-2 border-b-2 transition-all ${mode === "paste" ? "border-blue-500 text-blue-600 font-semibold" : "border-transparent text-zinc-500"}`}
+                className={`px-4 py-2 border-b-2 transition-all ${mode === "paste" ? "border-blue-500 text-blue-600 font-semibold" : "border-transparent text-muted-foreground"}`}
               >
                 Paste JSON
               </button>
               <button
                 onClick={() => setMode("file")}
-                className={`px-4 py-2 border-b-2 transition-all ${mode === "file" ? "border-blue-500 text-blue-600 font-semibold" : "border-transparent text-zinc-500"}`}
+                className={`px-4 py-2 border-b-2 transition-all ${mode === "file" ? "border-blue-500 text-blue-600 font-semibold" : "border-transparent text-muted-foreground"}`}
               >
                 Upload File
               </button>
@@ -137,9 +137,9 @@ export default function ImportModal({
             <div className="flex-1 overflow-auto min-h-[300px] flex flex-col gap-4">
               {mode === "paste" ? (
                 <>
-                  <div className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl relative group border dark:border-zinc-700">
+                  <div className="bg-muted/50 p-4 rounded-xl relative group border border-border">
                     <div className="flex justify-between items-center mb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         JSON Template
                       </span>
                       <button
@@ -158,12 +158,12 @@ export default function ImportModal({
                           );
                           navigator.clipboard.writeText(skeleton);
                         }}
-                        className="text-[10px] bg-zinc-200 dark:bg-zinc-700 px-3 py-1 rounded-md hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors font-semibold"
+                        className="text-[10px] bg-muted px-3 py-1 rounded-md hover:bg-accent transition-colors font-semibold"
                       >
                         Copy Template
                       </button>
                     </div>
-                    <pre className="text-[11px] font-mono text-zinc-600 dark:text-zinc-400">
+                    <pre className="text-[11px] font-mono text-muted-foreground">
                       {`{
       "words": [
         {
@@ -175,19 +175,19 @@ export default function ImportModal({
                     </pre>
                   </div>
                   <textarea
-                    className="flex-1 w-full p-4 font-mono text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl resize-none focus:ring-2 ring-blue-500/50 focus:outline-none min-h-[150px] transition-all"
+                    className="flex-1 w-full p-4 font-mono text-xs bg-muted/20 border border-border rounded-xl resize-none focus:ring-2 ring-blue-500/50 focus:outline-none min-h-[150px] transition-all"
                     placeholder="Paste your JSON here..."
                     value={jsonText}
                     onChange={(e) => setJsonText(e.target.value)}
                   />
                 </>
               ) : (
-                <div className="h-full flex flex-col justify-center items-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/50 p-10">
+                <div className="h-full flex flex-col justify-center items-center border-2 border-dashed border-border rounded-xl bg-muted/20 p-10">
                   <input
                     type="file"
                     accept=".json"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    className="block w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 text-center cursor-pointer"
+                    className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500/10 file:text-blue-500 hover:file:bg-blue-500/20 text-center cursor-pointer"
                   />
                 </div>
               )}
@@ -206,14 +206,14 @@ export default function ImportModal({
             <div className="flex justify-end gap-3 mt-8">
               <button
                 onClick={onClose}
-                className="px-5 py-2 text-sm font-medium text-zinc-600 hover:text-black dark:text-zinc-400 dark:hover:text-white transition-colors"
+                className="px-5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
                 disabled={!isValid || importing}
-                className="px-6 py-2.5 bg-black dark:bg-zinc-100 text-white dark:text-black font-bold text-sm rounded-xl hover:opacity-90 disabled:opacity-30 transition-all shadow-lg active:scale-95"
+                className="px-6 py-2.5 bg-foreground text-background font-bold text-sm rounded-xl hover:opacity-90 disabled:opacity-30 transition-all shadow-lg active:scale-95"
               >
                 {importing ? "Processing..." : "Import Words"}
               </button>

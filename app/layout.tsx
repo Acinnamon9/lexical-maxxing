@@ -23,7 +23,31 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('theme') || 'system';
+                const root = document.documentElement;
+                if (theme === 'dark') {
+                  root.classList.add('dark');
+                  root.classList.remove('light', 'solarized');
+                } else if (theme === 'light') {
+                  root.classList.add('light');
+                  root.classList.remove('dark', 'solarized');
+                } else if (theme === 'solarized') {
+                  root.classList.add('solarized');
+                  root.classList.remove('dark', 'light');
+                } else {
+                  root.classList.remove('dark', 'light', 'solarized');
+                }
+              } catch (e) {}
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >

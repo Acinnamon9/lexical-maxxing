@@ -62,7 +62,7 @@ export default function ChunkPage() {
     return <div className="p-8">Loading Chunk...</div>;
 
   return (
-    <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans bg-background">
       <header className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <motion.div
           initial={{ x: -20, opacity: 0 }}
@@ -70,14 +70,14 @@ export default function ChunkPage() {
         >
           <Link
             href={`/folder/${folderId}`}
-            className="text-sm text-zinc-400 hover:text-zinc-600 mb-2 block transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground mb-2 block transition-colors"
           >
             &larr; Back to {getFolder.name}
           </Link>
           <h1 className="text-4xl font-black tracking-tight">
             Chunk {index + 1}
           </h1>
-          <p className="text-zinc-500 text-sm mt-1 font-medium italic">
+          <p className="text-muted-foreground text-sm mt-1 font-medium italic">
             {chunkWords.length} semantic units ready for mastery
           </p>
         </motion.div>
@@ -88,7 +88,7 @@ export default function ChunkPage() {
         >
           <Link
             href={`/session/${folderId}?chunk=${index}`}
-            className="px-8 py-3 text-sm font-bold text-white bg-blue-600 dark:bg-blue-500 rounded-full shadow-xl shadow-blue-500/20 hover:bg-blue-700 dark:hover:bg-blue-400 transition-all flex items-center gap-3 active:scale-95"
+            className="px-8 py-3 text-sm font-bold text-background bg-foreground rounded-full shadow-xl shadow-foreground/10 hover:opacity-90 transition-all flex items-center gap-3 active:scale-95"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -118,7 +118,7 @@ export default function ChunkPage() {
             whileHover={{ scale: 1.05, rotate: 1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedWord(word)}
-            className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-blue-500 dark:hover:border-blue-600 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left group relative overflow-hidden"
+            className="p-6 bg-background border border-border rounded-2xl hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10 transition-all text-left group relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <svg
@@ -142,16 +142,15 @@ export default function ChunkPage() {
                 {word.term}
               </h3>
               <span
-                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${
-                  word.state.recallScore >= 2
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-zinc-100 text-zinc-400 dark:bg-zinc-800 dark:text-zinc-500"
-                }`}
+                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${word.state.recallScore >= 2
+                    ? "bg-green-500/10 text-green-600"
+                    : "bg-muted text-muted-foreground"
+                  }`}
               >
                 {word.state.recallScore >= 2 ? "FAM" : "NEW"}
               </span>
             </div>
-            <div className="text-[10px] text-zinc-400 font-bold flex items-center gap-2 uppercase tracking-tighter">
+            <div className="text-[10px] text-muted-foreground font-bold flex items-center gap-2 uppercase tracking-tighter">
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
               Inspect Meaning
             </div>

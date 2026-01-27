@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { useState } from "react";
 import Link from "next/link";
 import ImportModal from "@/components/import/ImportModal";
+import CreateFolderModal from "@/components/folders/CreateFolderModal";
 import { EnrichedWord } from "@/lib/types";
 import { motion } from "framer-motion";
 
@@ -27,6 +28,7 @@ const item = {
 export default function FolderDetailPage() {
   const { folderId } = useParams() as { folderId: string };
   const getFolder = useLiveQuery(() => db.folders.get(folderId), [folderId]);
+  const subfolders = useLiveQuery(() => db.folders.where({ parentId: folderId }).toArray(), [folderId]);
 
   const enrichedWords = useLiveQuery(async () => {
     const wordFolders = await db.wordFolders
@@ -48,8 +50,9 @@ export default function FolderDetailPage() {
   }, [folderId]);
 
   const [showImport, setShowImport] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
-  if (!getFolder || !enrichedWords)
+  if (!getFolder || !enrichedWords || !subfolders)
     return <div className="p-8">Loading Folder...</div>;
 
   const wordCount = enrichedWords.length;
@@ -59,7 +62,7 @@ export default function FolderDetailPage() {
   }
 
   return (
-    <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans bg-zinc-50 dark:bg-black">
+    <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans bg-background">
       <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <motion.div
           initial={{ x: -20, opacity: 0 }}
@@ -67,14 +70,14 @@ export default function FolderDetailPage() {
         >
           <Link
             href="/"
-            className="text-sm text-zinc-400 hover:text-zinc-600 mb-2 block transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground mb-2 block transition-colors"
           >
             &larr; Back to Dashboard
           </Link>
           <h1 className="text-3xl font-bold tracking-tight">
             {getFolder.name}
           </h1>
-          <p className="text-zinc-500 text-sm mt-1 font-medium">
+          <p className="text-muted-foreground text-sm mt-1 font-medium">
             {wordCount} Words &middot; {chunks.length} Chunks
           </p>
         </motion.div>
@@ -85,8 +88,28 @@ export default function FolderDetailPage() {
           className="flex gap-3"
         >
           <button
+            onClick={() => setShowCreate(true)}
+            className="px-4 py-2 text-sm font-bold text-background bg-foreground rounded-xl hover:opacity-90 transition-all shadow-lg active:scale-95 flex items-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Subfolder
+          </button>
+          <button
             onClick={() => setShowImport(true)}
-            className="px-4 py-2 text-sm font-semibold text-zinc-600 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-all shadow-sm active:scale-95"
+            className="px-4 py-2 text-sm font-semibold text-foreground/80 bg-background border border-border rounded-xl hover:bg-muted/50 transition-all shadow-sm active:scale-95"
           >
             Import JSON
           </button>
@@ -99,64 +122,114 @@ export default function FolderDetailPage() {
         animate="show"
         className="grid grid-cols-1 sm:grid-cols-2 gap-4"
       >
-        {chunks.length === 0 ? (
+        {chunks.length === 0 && subfolders.length === 0 ? (
           <motion.div
             variants={item}
-            className="col-span-full text-center py-20 border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white/50 dark:bg-zinc-900/50"
+            className="col-span-full text-center py-20 border-2 border-dashed border-border rounded-2xl bg-muted/20"
           >
-            <h3 className="text-lg font-medium text-zinc-400">
+            <h3 className="text-lg font-medium text-muted-foreground">
               This folder is empty.
             </h3>
-            <button
-              onClick={() => setShowImport(true)}
-              className="mt-4 text-blue-500 font-bold hover:underline text-sm"
-            >
-              Import words to get started
-            </button>
+            <p className="text-sm text-muted-foreground/60 mt-1 mb-6">
+              Create a subfolder or import words to get started.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => setShowCreate(true)}
+                className="px-6 py-2 bg-foreground text-background rounded-full font-bold text-sm shadow-xl active:scale-95"
+              >
+                New Folder
+              </button>
+              <button
+                onClick={() => setShowImport(true)}
+                className="px-6 py-2 border border-border rounded-full font-bold text-sm hover:bg-muted transition-colors"
+              >
+                Import JSON
+              </button>
+            </div>
           </motion.div>
         ) : (
-          chunks.map((chunk, index) => {
-            const familiarInChunk = chunk.filter(
-              (w) => w.state.recallScore >= 2,
-            ).length;
-
-            return (
+          <>
+            {subfolders.map((folder) => (
               <motion.div
-                key={index}
+                key={folder.id}
                 variants={item}
                 whileHover={{ y: -4, scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
               >
                 <Link
-                  href={`/folder/${folderId}/chunk/${index}`}
-                  className="block p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl hover:border-zinc-400 dark:hover:border-zinc-600 transition-colors shadow-sm relative overflow-hidden group"
+                  href={`/folder/${folder.id}`}
+                  className="block p-6 bg-background border border-border rounded-2xl hover:border-blue-500/50 transition-colors shadow-sm relative overflow-hidden group border-l-4 border-l-blue-500"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="h-12 w-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center font-bold text-xl text-zinc-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
-                      {index + 1}
+                    <div className="h-12 w-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" /></svg>
                     </div>
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-50 dark:bg-zinc-800 px-2 py-1 rounded-md">
-                      Chunk
+                    <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded-md">
+                      Subfolder
                     </span>
                   </div>
 
                   <h3 className="font-bold text-xl mb-1 tracking-tight">
-                    Chunk {index + 1}
+                    {folder.name}
                   </h3>
-                  <p className="text-sm text-zinc-500 font-medium">
-                    {chunk.length} words &middot; {familiarInChunk} familiar
+                  <p className="text-sm text-muted-foreground font-medium">
+                    Nested Organization
                   </p>
 
-                  <div className="mt-6 pt-6 border-t border-zinc-50 dark:border-zinc-800 text-xs text-blue-600 dark:text-blue-400 font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
-                    Explore Chunks{" "}
+                  <div className="mt-6 pt-6 border-t border-border text-xs text-blue-500 font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                    Open Folder{" "}
                     <span className="transition-transform group-hover:translate-x-1">
                       &rarr;
                     </span>
                   </div>
                 </Link>
               </motion.div>
-            );
-          })
+            ))}
+
+            {chunks.map((chunk, index) => {
+              const familiarInChunk = chunk.filter(
+                (w) => w.state.recallScore >= 2,
+              ).length;
+
+              return (
+                <motion.div
+                  key={index}
+                  variants={item}
+                  whileHover={{ y: -4, scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                >
+                  <Link
+                    href={`/folder/${folderId}/chunk/${index}`}
+                    className="block p-6 bg-background border border-border rounded-2xl hover:border-foreground/20 transition-colors shadow-sm relative overflow-hidden group"
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="h-12 w-12 rounded-2xl bg-muted flex items-center justify-center font-bold text-xl text-muted-foreground group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                        {index + 1}
+                      </div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest bg-muted/50 px-2 py-1 rounded-md">
+                        Chunk
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-xl mb-1 tracking-tight">
+                      Chunk {index + 1}
+                    </h3>
+                    <p className="text-sm text-muted-foreground font-medium">
+                      {chunk.length} words &middot; {familiarInChunk} familiar
+                    </p>
+
+                    <div className="mt-6 pt-6 border-t border-border text-xs text-blue-500 font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      Explore Chunks{" "}
+                      <span className="transition-transform group-hover:translate-x-1">
+                        &rarr;
+                      </span>
+                    </div>
+                  </Link>
+                </motion.div>
+              );
+            })}
+          </>
         )}
       </motion.main>
 
@@ -165,7 +238,14 @@ export default function FolderDetailPage() {
         folderName={getFolder.name}
         isOpen={showImport}
         onClose={() => setShowImport(false)}
-        onSuccess={() => {}}
+        onSuccess={() => { }}
+      />
+
+      <CreateFolderModal
+        isOpen={showCreate}
+        parentId={folderId}
+        onClose={() => setShowCreate(false)}
+        onSuccess={() => { }}
       />
     </div>
   );
