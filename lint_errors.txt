@@ -1,0 +1,100 @@
+
+S:\lexical-maxxing\app\api\agent\route.ts
+  109:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\app\api\clarify\route.ts
+  50:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  57:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\app\page.tsx
+  38:36  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   @typescript-eslint/no-explicit-any
+  49:9   error  Error: Cannot access variable before it is declared
+
+`handleSync` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+S:\lexical-maxxing\app\page.tsx:49:9
+  47 |       if (data.user) {
+  48 |         setUser(data.user);
+> 49 |         handleSync(data.user.id);
+     |         ^^^^^^^^^^ `handleSync` accessed before it is declared
+  50 |       }
+  51 |     });
+  52 |
+
+S:\lexical-maxxing\app\page.tsx:67:3
+  65 |   }, []);
+  66 |
+> 67 |   const handleSync = async (userId: string) => {
+     |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 68 |     setIsSyncing(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 69 |     await syncData(userId);
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 70 |     setIsSyncing(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^
+> 71 |   };
+     | ^^^^^ `handleSync` is declared here
+  72 |
+  73 |   if (!folders) return <div className="p-8">Loading...</div>;
+  74 |  react-hooks/immutability
+
+S:\lexical-maxxing\components\AIWidget.tsx
+  105:17   error  'toolResults' is never reassigned. Use 'const' instead           prefer-const
+  170:21   error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  199:21   error  Unexpected any. Specify a different type                         @typescript-eslint/no-explicit-any
+  307:46   error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  307:111  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  307:135  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+S:\lexical-maxxing\components\AuthModal.tsx
+  10:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\components\MeaningModal.tsx
+  251:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\components\import\BulkImportModal.tsx
+  141:60   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  141:78   error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  141:105  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  141:114  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+S:\lexical-maxxing\components\import\ImportModal.tsx
+  98:29  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+  98:42  error  `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`  react/no-unescaped-entities
+
+S:\lexical-maxxing\hooks\useAgentAction.ts
+    8:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\lib\import.ts
+   13:57  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  101:17  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  109:57  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  110:13  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  144:15  error  'word' is never reassigned. Use 'const' instead  prefer-const
+  183:17  error  Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+S:\lexical-maxxing\lib\seed.ts
+  78:5  error  'words' is never reassigned. Use 'const' instead         prefer-const
+  79:5  error  'wordFolders' is never reassigned. Use 'const' instead   prefer-const
+  85:9  error  'existingWord' is never reassigned. Use 'const' instead  prefer-const
+  86:9  error  'wordId' is never reassigned. Use 'const' instead        prefer-const
+
+S:\lexical-maxxing\lib\store.ts
+  11:5  error  'folders' is never reassigned. Use 'const' instead      prefer-const
+  12:5  error  'words' is never reassigned. Use 'const' instead        prefer-const
+  13:5  error  'wordFolders' is never reassigned. Use 'const' instead  prefer-const
+  14:5  error  'wordStates' is never reassigned. Use 'const' instead   prefer-const
+  15:5  error  'productions' is never reassigned. Use 'const' instead  prefer-const
+
+S:\lexical-maxxing\lib\sync.ts
+   36:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   44:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   77:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  119:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 42 problems (42 errors, 0 warnings)
+  11 errors and 0 warnings potentially fixable with the `--fix` option.
+

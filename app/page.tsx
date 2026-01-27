@@ -27,7 +27,12 @@ const item = {
 };
 
 export default function Home() {
-  const folders = useLiveQuery(() => db.folders.toCollection().filter(f => !f.parentId).toArray());
+  const folders = useLiveQuery(() =>
+    db.folders
+      .toCollection()
+      .filter((f) => !f.parentId)
+      .toArray(),
+  );
   const [showCreate, setShowCreate] = useState(false);
   const [showAuth, setShowAuth] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -37,6 +42,12 @@ export default function Home() {
     name: string;
   } | null>(null);
 
+  const handleSync = async (userId: string) => {
+    setIsSyncing(true);
+    await syncData(userId);
+    setIsSyncing(false);
+  };
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
@@ -45,23 +56,19 @@ export default function Home() {
       }
     });
 
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-        handleSync(session.user.id);
-      } else {
-        setUser(null);
-      }
-    });
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (session?.user) {
+          setUser(session.user);
+          handleSync(session.user.id);
+        } else {
+          setUser(null);
+        }
+      },
+    );
 
     return () => authListener.subscription.unsubscribe();
   }, []);
-
-  const handleSync = async (userId: string) => {
-    setIsSyncing(true);
-    await syncData(userId);
-    setIsSyncing(false);
-  };
 
   if (!folders) return <div className="p-8">Loading...</div>;
 
@@ -102,7 +109,7 @@ export default function Home() {
               Login / Sync
             </button>
           )}
-          <div className="h-4 w-[1px] bg-border mx-1" />
+          <div className="h-4 w-px bg-border mx-1" />
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-full text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
@@ -123,7 +130,7 @@ export default function Home() {
             </svg>
             New Folder
           </button>
-          <div className="h-4 w-[1px] bg-border mx-1" />
+          <div className="h-4 w-px bg-border mx-1" />
           <Link
             href="/settings"
             className="text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -196,9 +203,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div
-                className="inline-flex items-center text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors gap-2"
-              >
+              <div className="inline-flex items-center text-sm font-semibold text-muted-foreground group-hover:text-foreground transition-colors gap-2">
                 View Folder{" "}
                 <span className="group-hover:translate-x-1 transition-transform inline-block">
                   &rarr;
@@ -222,22 +227,20 @@ export default function Home() {
         )}
       </motion.main>
 
-      {
-        importTarget && (
-          <ImportModal
-            folderId={importTarget.id}
-            folderName={importTarget.name}
-            isOpen={!!importTarget}
-            onClose={() => setImportTarget(null)}
-            onSuccess={() => { }}
-          />
-        )
-      }
+      {importTarget && (
+        <ImportModal
+          folderId={importTarget.id}
+          folderName={importTarget.name}
+          isOpen={!!importTarget}
+          onClose={() => setImportTarget(null)}
+          onSuccess={() => {}}
+        />
+      )}
 
       <CreateFolderModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
-        onSuccess={() => { }}
+        onSuccess={() => {}}
       />
 
       <AuthModal
@@ -248,6 +251,6 @@ export default function Home() {
           handleSync(u.id);
         }}
       />
-    </div >
+    </div>
   );
 }
