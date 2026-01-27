@@ -459,6 +459,14 @@ export default function AIWidget() {
                               `Create folder "${action.payload?.name || "unnamed"}"`}
                             {action.type === "ADD_WORD" &&
                               `Add "${action.payload?.term || "unknown term"}" to ${action.payload?.folderName || "current folder"}`}
+                            {action.type === "DELETE_ITEM" &&
+                              `Delete ${action.payload?.type} (ID: ${action.payload?.id})`}
+                            {action.type === "RENAME_ITEM" &&
+                              `Rename ${action.payload?.type} to "${action.payload?.newName}"`}
+                            {action.type === "MOVE_ITEM" &&
+                              `Move ${action.payload?.type} to folder ${action.payload?.targetFolderId}`}
+                            {action.type === "NAVIGATE_TO" &&
+                              `Navigate to ${action.payload?.view}`}
                           </li>
                         ))}
                       </ul>

@@ -25,6 +25,14 @@ Every action must be an object with a "type" and a "payload" property.
    - payload: { name: string, description?: string, parentTempId?: string, parentName?: string, tempId?: string }
 2. ADD_WORD:
    - payload: { term: string, folderName?: string, parentTempId?: string }
+3. DELETE_ITEM:
+   - payload: { type: 'folder' | 'word', id: string }
+4. RENAME_ITEM:
+   - payload: { type: 'folder' | 'word', id: string, newName: string }
+5. MOVE_ITEM:
+   - payload: { type: 'folder' | 'word', id: string, targetFolderId: string }
+6. NAVIGATE_TO:
+   - payload: { view: 'folder' | 'home', id?: string }
 
 ### Available Actions (Read - for verification only)
 3. GET_FOLDER_STRUCTURE:

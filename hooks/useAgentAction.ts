@@ -1,11 +1,16 @@
 import { db } from "@/lib/db";
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 export type ActionType =
   | "CREATE_FOLDER"
   | "ADD_WORD"
   | "GET_FOLDER_STRUCTURE"
-  | "SEARCH_FOLDERS";
+  | "SEARCH_FOLDERS"
+  | "DELETE_ITEM"
+  | "RENAME_ITEM"
+  | "MOVE_ITEM"
+  | "NAVIGATE_TO";
 
 export interface AgentAction {
   type: ActionType;
@@ -20,6 +25,7 @@ export const isReadAction = (action: AgentAction): boolean => {
 };
 
 export const useAgentAction = () => {
+  const router = useRouter();
   // Execute read-only actions and return results
   const executeReadAction = useCallback(
     async (action: AgentAction): Promise<string | null> => {
@@ -169,6 +175,69 @@ export const useAgentAction = () => {
               await db.wordFolders.add({ wordId, folderId });
               log.push(`Added "${term}" to folder.`);
             }
+          }
+        }
+
+        if (action.type === "DELETE_ITEM") {
+          const { type, id } = action.payload || {};
+          if (!id) {
+            log.push("Skipped DELETE_ITEM: No ID provided.");
+            continue;
+          }
+
+          if (type === "folder") {
+            await db.folders.delete(id);
+            log.push(`Deleted folder ${id}`);
+          } else if (type === "word") {
+            await db.words.delete(id);
+            await db.wordFolders.where("wordId").equals(id).delete();
+            await db.wordStates.where("wordId").equals(id).delete();
+            log.push(`Deleted word ${id}`);
+          }
+        }
+
+        if (action.type === "RENAME_ITEM") {
+          const { type, id, newName } = action.payload || {};
+          if (!id || !newName) {
+            log.push("Skipped RENAME_ITEM: Missing ID or newName.");
+            continue;
+          }
+
+          if (type === "folder") {
+            await db.folders.update(id, { name: newName });
+            log.push(`Renamed folder to "${newName}"`);
+          } else if (type === "word") {
+            await db.words.update(id, { term: newName });
+            log.push(`Renamed word to "${newName}"`);
+          }
+        }
+
+        if (action.type === "MOVE_ITEM") {
+          const { type, id, targetFolderId } = action.payload || {};
+          if (!id || !targetFolderId) {
+            log.push("Skipped MOVE_ITEM: Missing ID or targetFolderId.");
+            continue;
+          }
+
+          if (type === "folder") {
+            await db.folders.update(id, { parentId: targetFolderId });
+            log.push(`Moved folder to ${targetFolderId}`);
+          } else if (type === "word") {
+            // Remove from all folders and add to target
+            await db.wordFolders.where("wordId").equals(id).delete();
+            await db.wordFolders.add({ wordId: id, folderId: targetFolderId });
+            log.push(`Moved word to folder ${targetFolderId}`);
+          }
+        }
+
+        if (action.type === "NAVIGATE_TO") {
+          const { view, id } = action.payload || {};
+          if (view === "home") {
+            router.push("/");
+            log.push("Navigated to Home");
+          } else if (view === "folder" && id) {
+            router.push(`/folder/${id}`);
+            log.push(`Navigated to folder ${id}`);
           }
         }
       } catch (e: any) {
