@@ -10,6 +10,7 @@ import {
   AgentSession,
   AgentMessage,
   UserSetting,
+  AgentActionHistory,
 } from "./types";
 import {
   SEED_FOLDERS,
@@ -29,15 +30,16 @@ export class LexicalDatabase extends Dexie {
   agentSessions!: Table<AgentSession, string>;
   agentMessages!: Table<AgentMessage, string>;
   userSettings!: Table<UserSetting, string>;
+  agentActionHistory!: Table<AgentActionHistory, string>;
 
   constructor() {
     super("LexicalDatabase");
 
     // Schema Definition
-    this.version(8).stores({
+    this.version(9).stores({
       folders: "id, name, parentId",
-      words: "id, &term", // Indexed and Unique
-      wordFolders: "[wordId+folderId], folderId, wordId", // Composite Index
+      words: "id, &term",
+      wordFolders: "[wordId+folderId], folderId, wordId",
       wordStates: "wordId, nextReviewAt",
       productions: "id, [wordId+folderId], wordId, folderId",
       wordMeanings: "id, [wordId+folderId], wordId, folderId",
@@ -45,6 +47,7 @@ export class LexicalDatabase extends Dexie {
       agentSessions: "id, createdAt, updatedAt",
       agentMessages: "id, sessionId, createdAt",
       userSettings: "id, updatedAt",
+      agentActionHistory: "id, sessionId, timestamp",
     });
 
     // Seeding Logic

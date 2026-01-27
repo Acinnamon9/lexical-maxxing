@@ -13,7 +13,9 @@ interface AgentRequest {
   currentContext?: {
     folderId: string | null;
     folderName: string | null;
+    visibleWords?: string[];
   };
+  messages?: { role: string; content: string }[];
   toolResults?: Record<string, string>;
 }
 
@@ -62,7 +64,13 @@ function classifyIntent(query: string): "ARCHITECT" | "SCHOLAR" {
 export async function POST(req: Request) {
   try {
     const body: AgentRequest = await req.json();
-    const { query, apiKey, model: requestedModel, currentContext } = body;
+    const {
+      query,
+      apiKey,
+      model: requestedModel,
+      currentContext,
+      messages,
+    } = body;
 
     // Prioritize client-provided key, then env var
     const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
@@ -96,6 +104,7 @@ export async function POST(req: Request) {
 
       ### Context
       Current viewing context: "${currentContext?.folderName || "Home/Root"}".
+      Visible Words on Screen: ${currentContext?.visibleWords?.join(", ") || "(None selected)"}
       If they say "here", they mean this folder.
       ${body.toolResults ? `\n### Tool Results from Previous Actions:\n${JSON.stringify(body.toolResults, null, 2)}` : ""}
       `;
@@ -106,11 +115,20 @@ export async function POST(req: Request) {
 
       ### Context
       Current viewing context: "${currentContext?.folderName || "Home/Root"}".
+      Visible Words on Screen: ${currentContext?.visibleWords?.join(", ") || "(None selected)"}
       `;
     }
 
+    // Format conversation history
+    const history = (messages || [])
+      .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
+      .join("\n");
+
     const fullPrompt = `
       ${systemPrompt}
+
+      ### Conversation History
+      ${history}
 
       User Request: "${query}"
     `;

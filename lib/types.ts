@@ -90,3 +90,12 @@ export interface UserSetting {
   value: string;
   updatedAt: number;
 }
+
+// Action Journaling for Undo
+export interface AgentActionHistory {
+  id: string;
+  sessionId: string;
+  executedActions: any[]; // AgentAction[] from useAgentAction
+  inverseActions: any[];
+  timestamp: number;
+}

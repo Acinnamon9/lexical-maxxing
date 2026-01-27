@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from "uuid";
 import { AgentMessage, AgentSession } from "@/lib/types";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useSync } from "@/hooks/useSync";
+import { LoginButton } from "@/components/LoginButton";
 
 // Removed local Message interface in favor of AgentMessage
 
@@ -26,6 +27,7 @@ export default function AIWidget() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [canUndo, setCanUndo] = useState(false);
 
   // AI Configuration from centralized hook
   const { config } = useAIConfig();
@@ -63,16 +65,48 @@ export default function AIWidget() {
   const [pendingActions, setPendingActions] = useState<AgentAction[] | null>(
     null,
   );
-  const { executePlan, executeReadAction } = useAgentAction();
+  const { executePlan, executeReadAction, undoLastPlan } = useAgentAction();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Context Awareness
   const params = useParams();
   const folderId = params?.folderId as string | undefined;
+  const chunkIndex = params?.chunkIndex
+    ? parseInt(params.chunkIndex as string)
+    : undefined;
+
   const currentFolder = useLiveQuery(
     () => (folderId ? db.folders.get(folderId) : undefined),
     [folderId],
   );
+
+  // Visible Words Calculation
+  const visibleWords = useLiveQuery(async () => {
+    if (!folderId) return [];
+
+    // Get all words in folder, sorted by wordId (Must match FolderDetailPage logic)
+    const wordFolders = await db.wordFolders
+      .where("folderId")
+      .equals(folderId)
+      .toArray();
+    wordFolders.sort((a, b) => a.wordId.localeCompare(b.wordId));
+
+    // Determine slice range
+    const CHUNK_SIZE = 15; // Must match FolderDetailPage
+    let start = 0;
+    let end = wordFolders.length;
+
+    if (chunkIndex !== undefined) {
+      start = chunkIndex * CHUNK_SIZE;
+      end = start + CHUNK_SIZE;
+    }
+
+    const visibleIds = wordFolders.slice(start, end).map((wf) => wf.wordId);
+    if (visibleIds.length === 0) return [];
+
+    const words = await db.words.bulkGet(visibleIds);
+    return words.filter((w) => !!w).map((w) => w!.term);
+  }, [folderId, chunkIndex]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -136,7 +170,11 @@ export default function AIWidget() {
             currentContext: {
               folderId: folderId || null,
               folderName: currentFolder?.name || null,
+              visibleWords: visibleWords || [],
             },
+            messages: (messages || [])
+              .slice(-10)
+              .map((m) => ({ role: m.role, content: m.text })),
             toolResults:
               Object.keys(toolResults).length > 0 ? toolResults : undefined,
           }),
@@ -209,7 +247,7 @@ export default function AIWidget() {
     setPendingActions(null);
 
     try {
-      const logs = await executePlan(pendingActions);
+      const logs = await executePlan(pendingActions, sessionId);
       if (logs.length > 0) {
         await db.agentMessages.add({
           id: crypto.randomUUID(),
@@ -218,6 +256,8 @@ export default function AIWidget() {
           text: `✅ Done! ${logs.join(", ")}`,
           createdAt: Date.now(),
         });
+        setCanUndo(true); // Enable undo for a short time
+        setTimeout(() => setCanUndo(false), 30000); // Undo available for 30s
       }
     } catch (e: any) {
       await db.agentMessages.add({
@@ -229,7 +269,34 @@ export default function AIWidget() {
       });
     } finally {
       setIsProcessing(false);
-      triggerSync(); // Sync after executing plan
+      triggerSync();
+    }
+  };
+
+  const handleUndo = async () => {
+    if (!sessionId) return;
+    setIsProcessing(true);
+    setCanUndo(false);
+    try {
+      const logs = await undoLastPlan(sessionId);
+      await db.agentMessages.add({
+        id: crypto.randomUUID(),
+        sessionId: sessionId,
+        role: "system",
+        text: `↩️ ${logs.join(", ")}`,
+        createdAt: Date.now(),
+      });
+    } catch (e: any) {
+      await db.agentMessages.add({
+        id: crypto.randomUUID(),
+        sessionId: sessionId,
+        role: "system",
+        text: `Undo Error: ${e.message}`,
+        createdAt: Date.now(),
+      });
+    } finally {
+      setIsProcessing(false);
+      triggerSync();
     }
   };
 
@@ -279,7 +346,8 @@ export default function AIWidget() {
                   {showHistory ? "History" : "The Architect"}
                 </span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <LoginButton />
                 <button
                   onClick={() => setShowHistory(!showHistory)}
                   className="p-1 text-muted-foreground hover:text-indigo-500 transition-colors"
@@ -504,6 +572,31 @@ export default function AIWidget() {
                         style={{ animationDelay: "300ms" }}
                       />
                     </div>
+                  </div>
+                )}
+
+                {canUndo && !isProcessing && (
+                  <div className="flex justify-start">
+                    <button
+                      onClick={handleUndo}
+                      className="bg-amber-500/20 text-amber-600 border border-amber-500/30 rounded-lg px-3 py-1.5 text-xs font-bold hover:bg-amber-500/30 transition-colors flex items-center gap-1"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="1 4 1 10 7 10" />
+                        <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                      </svg>
+                      Undo Last Action
+                    </button>
                   </div>
                 )}
               </div>
