@@ -10,6 +10,10 @@ interface AgentRequest {
   query: string;
   apiKey?: string;
   model?: string;
+  provider?: "gemini" | "lmstudio";
+  lmStudioBaseUrl?: string;
+  lmStudioModel?: string;
+  agentMode?: "auto" | "ARCHITECT" | "SCHOLAR" | "NONE";
   currentContext?: {
     folderId: string | null;
     folderName: string | null;
@@ -70,35 +74,24 @@ export async function POST(req: Request) {
       model: requestedModel,
       currentContext,
       messages,
+      provider = "gemini",
+      lmStudioBaseUrl,
+      lmStudioModel,
+      agentMode = "auto",
     } = body;
 
-    // Prioritize client-provided key, then env var
-    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
-
-    if (!finalApiKey) {
-      return NextResponse.json(
-        { error: "API Key is required. Please set it in Settings." },
-        { status: 401 },
-      );
-    }
-
-    const selectedModel = requestedModel || "gemini-2.5-flash";
-    const genAI = new GoogleGenerativeAI(finalApiKey);
-    const model = genAI.getGenerativeModel({
-      model: selectedModel,
-      generationConfig: {
-        responseMimeType: "application/json",
-      },
-    });
-
-    const intent = classifyIntent(query);
+    // Use manual override if set, otherwise auto-classify
+    const intent = agentMode === "auto" ? classifyIntent(query) : agentMode;
     console.log(
-      `Agent API: Intent classified as ${intent} for query: "${query}"`,
+      `Agent API: Intent=${intent} (mode=${agentMode}) for query: "${query}"`,
     );
 
     let systemPrompt = "";
 
-    if (intent === "ARCHITECT") {
+    if (intent === "NONE") {
+      // Raw mode - no system prompt, just conversation
+      systemPrompt = "";
+    } else if (intent === "ARCHITECT") {
       systemPrompt = `
       ${ARCHITECT_SYSTEM_PROMPT}
 
@@ -119,24 +112,140 @@ export async function POST(req: Request) {
       `;
     }
 
+    if (provider === "lmstudio" && lmStudioBaseUrl) {
+      console.log(
+        `Agent API: Routing to LM Studio at ${lmStudioBaseUrl} with model: ${lmStudioModel || "default"}`,
+      );
+      try {
+        const response = await fetch(`${lmStudioBaseUrl}/chat/completions`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: lmStudioModel || "local-model",
+            messages: [
+              ...(systemPrompt
+                ? [{ role: "system", content: systemPrompt }]
+                : []),
+              ...(messages || []).map((m) => ({
+                role: m.role === "agent" ? "assistant" : m.role,
+                content: m.content,
+              })),
+              {
+                role: "user",
+                content: query,
+              },
+            ],
+            response_format: { type: "text" },
+            temperature: 0.2,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`LM Studio Error: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+        let responseText = data.choices[0].message.content;
+
+        // For NONE mode, return plain text without JSON parsing
+        if (intent === "NONE") {
+          return NextResponse.json({
+            actions: [],
+            message: responseText,
+          });
+        }
+
+        // Clean up responseText if it contains markdown code blocks
+        if (responseText.includes("```")) {
+          const match = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (match) {
+            responseText = match[1].trim();
+          }
+        }
+
+        try {
+          const jsonResponse = JSON.parse(responseText.trim());
+          if (
+            intent === "SCHOLAR" &&
+            jsonResponse.actions &&
+            jsonResponse.actions.length > 0
+          ) {
+            console.warn("Scholar tried to perform actions. Blocking.");
+            jsonResponse.actions = [];
+          }
+          return NextResponse.json(jsonResponse);
+        } catch {
+          console.warn(
+            "Agent API: Failed to parse LM Studio JSON, falling back to plain message.",
+          );
+          // Fallback: If it's not JSON, treat the whole thing as a message.
+          // This prevents the "Failed to contact Architect" error in the UI.
+          return NextResponse.json({
+            actions: [],
+            message: data.choices[0].message.content, // Use original content
+          });
+        }
+      } catch (lmError: any) {
+        console.error("Agent API: LM Studio request failed", lmError);
+        return NextResponse.json(
+          { error: `LM Studio Error: ${lmError.message}` },
+          { status: 500 },
+        );
+      }
+    }
+
+    // Default: Gemini
+    const finalApiKey = apiKey || process.env.GEMINI_API_KEY;
+
+    if (!finalApiKey) {
+      return NextResponse.json(
+        { error: "API Key is required. Please set it in Settings." },
+        { status: 401 },
+      );
+    }
+
+    const selectedModel = requestedModel || "gemini-2.5-flash";
+    const genAI = new GoogleGenerativeAI(finalApiKey);
+    const model = genAI.getGenerativeModel({
+      model: selectedModel,
+      generationConfig: {
+        // Only use JSON format if we have a system prompt (Architect/Scholar)
+        ...(systemPrompt ? { responseMimeType: "application/json" } : {}),
+      },
+    });
+
     // Format conversation history
     const history = (messages || [])
       .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
       .join("\n");
 
-    const fullPrompt = `
+    // For NONE mode, just send history + query. For others, include system prompt.
+    const fullPrompt = systemPrompt
+      ? `
       ${systemPrompt}
 
       ### Conversation History
       ${history}
 
       User Request: "${query}"
-    `;
+    `
+      : `${history ? `Previous conversation:\n${history}\n\n` : ""}${query}`;
 
     console.log(`Agent API: Processing request with ${intent} persona.`);
 
     const result = await model.generateContent(fullPrompt);
     const responseText = result.response.text();
+
+    // For NONE mode, return plain text without action processing
+    if (intent === "NONE") {
+      return NextResponse.json({
+        actions: [],
+        message: responseText,
+      });
+    }
 
     try {
       const jsonResponse = JSON.parse(responseText);
@@ -152,7 +261,7 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(jsonResponse);
-    } catch (e) {
+    } catch {
       console.error("Agent API: Failed to parse JSON", responseText);
       return NextResponse.json(
         {
@@ -163,11 +272,10 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
-  } catch (error: any) {
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal Server Error";
     console.error("Agent API Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -9,7 +9,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    async session({ session, token }) {
+    async session({ session }) {
       if (session.user) {
         // You can extend the session object here if needed
       }

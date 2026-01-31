@@ -1,3 +1,4 @@
+import { Table } from "dexie";
 import { db } from "./db";
 import { supabase } from "./supabase";
 import {
@@ -7,6 +8,7 @@ import {
   UserSetting,
   Word,
   WordFolder,
+  Note,
 } from "./types";
 
 export async function syncData(userId: string) {
@@ -54,6 +56,9 @@ export async function syncData(userId: string) {
       "user_settings",
     );
 
+    // 7. Notes
+    await syncTable<Note>("notes", db.notes, userId, "notes");
+
     console.log("Sync complete!");
     return true;
   } catch (error) {
@@ -62,9 +67,9 @@ export async function syncData(userId: string) {
   }
 }
 
-async function syncTable<T>(
+async function syncTable<T extends { id?: string } | object>(
   dexieTableName: string,
-  dexieTable: any,
+  dexieTable: Table<T, any>,
   userId: string,
   supabaseTableName: string,
   isComposite = false,
@@ -72,7 +77,7 @@ async function syncTable<T>(
   // A. PUSH: Get all local data and upsert to Supabase
   const localData = await dexieTable.toArray();
   if (localData.length > 0) {
-    const recordsToPush = localData.map((item: any) => {
+    const recordsToPush = localData.map((item: T) => {
       // Map camelCase to snake_case if needed, or just ensure DB columns match
       // Ideally, we keep them same or map them.
       // For this MVP, let's assume we map keys manually or use a transformer if needed.
@@ -88,7 +93,12 @@ async function syncTable<T>(
       });
 
     if (pushError)
-      console.error(`Error pushing ${supabaseTableName}:`, pushError);
+      console.error(`Error pushing ${supabaseTableName}:`, {
+        message: pushError.message,
+        details: pushError.details,
+        hint: pushError.hint,
+        code: pushError.code,
+      });
   }
 
   // B. PULL: Get all data from Supabase and put into Dexie
@@ -105,7 +115,7 @@ async function syncTable<T>(
   if (remoteData && remoteData.length > 0) {
     const recordsToPull = remoteData.map((item: any) =>
       transformFromSupabase(item, dexieTableName),
-    );
+    ) as T[];
     await dexieTable.bulkPut(recordsToPull);
   }
 }
@@ -120,6 +130,20 @@ function transformToSupabase(item: any, userId: string, tableName: string) {
       user_id: userId,
       name: item.name,
       parent_id: item.parentId || null, // Camel to Snake
+      updated_at: item.updatedAt
+        ? new Date(item.updatedAt).toISOString()
+        : new Date().toISOString(),
+    };
+  }
+  if (tableName === "notes") {
+    return {
+      id: item.id,
+      folder_id: item.folderId,
+      user_id: userId,
+      title: item.title,
+      content: item.content,
+      created_at: new Date(item.createdAt).toISOString(),
+      updated_at: new Date(item.updatedAt).toISOString(),
     };
   }
   if (tableName === "word_folders") {
@@ -167,6 +191,19 @@ function transformFromSupabase(item: any, tableName: string) {
       id: item.id,
       name: item.name,
       parentId: item.parent_id,
+      updatedAt: item.updated_at
+        ? new Date(item.updated_at).getTime()
+        : Date.now(),
+    };
+  }
+  if (tableName === "notes") {
+    return {
+      id: item.id,
+      folderId: item.folder_id,
+      title: item.title,
+      content: item.content,
+      createdAt: new Date(item.created_at).getTime(),
+      updatedAt: new Date(item.updated_at).getTime(),
     };
   }
   if (tableName === "wordFolders") {

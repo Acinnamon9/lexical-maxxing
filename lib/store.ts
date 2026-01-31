@@ -8,11 +8,11 @@ import {
 import { EnrichedWord, Folder, Production, Word } from "./types";
 
 // In-memory "Database"
-let folders = [...SEED_FOLDERS];
-let words = [...SEED_WORDS];
-let wordFolders = [...SEED_WORD_FOLDERS];
-let wordStates = [...SEED_WORD_STATES];
-let productions = [...SEED_PRODUCTIONS];
+const folders = [...SEED_FOLDERS];
+const words = [...SEED_WORDS];
+const wordFolders = [...SEED_WORD_FOLDERS];
+const wordStates = [...SEED_WORD_STATES];
+const productions = [...SEED_PRODUCTIONS];
 
 export const db = {
   getFolders: (): Folder[] => folders,

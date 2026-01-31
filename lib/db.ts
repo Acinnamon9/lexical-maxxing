@@ -11,6 +11,10 @@ import {
   AgentMessage,
   UserSetting,
   AgentActionHistory,
+  Note,
+  ReviewSession,
+  WordLink,
+  WordGroup,
 } from "./types";
 import {
   SEED_FOLDERS,
@@ -22,7 +26,7 @@ import {
 export class LexicalDatabase extends Dexie {
   folders!: Table<Folder, string>;
   words!: Table<Word, string>;
-  wordFolders!: Table<WordFolder, number>; // Composite key management via ID or index
+  wordFolders!: Table<WordFolder, [string, string]>; // Composite key: [wordId, folderId]
   wordStates!: Table<WordState, string>;
   productions!: Table<Production, string>;
   wordMeanings!: Table<WordMeaning, string>;
@@ -31,12 +35,17 @@ export class LexicalDatabase extends Dexie {
   agentMessages!: Table<AgentMessage, string>;
   userSettings!: Table<UserSetting, string>;
   agentActionHistory!: Table<AgentActionHistory, string>;
+  notes!: Table<Note, string>;
+  // New tables for enhanced AI tooling
+  reviewSessions!: Table<ReviewSession, string>;
+  wordLinks!: Table<WordLink, string>;
+  wordGroups!: Table<WordGroup, string>;
 
   constructor() {
     super("LexicalDatabase");
 
-    // Schema Definition
-    this.version(9).stores({
+    // Schema Definition - Version 12 adds review sessions, word links, word groups
+    this.version(12).stores({
       folders: "id, name, parentId",
       words: "id, &term",
       wordFolders: "[wordId+folderId], folderId, wordId",
@@ -48,6 +57,11 @@ export class LexicalDatabase extends Dexie {
       agentMessages: "id, sessionId, createdAt",
       userSettings: "id, updatedAt",
       agentActionHistory: "id, sessionId, timestamp",
+      notes: "id, folderId, createdAt, title",
+      // New tables
+      reviewSessions: "id, folderId, createdAt",
+      wordLinks: "id, wordId1, wordId2, relationType",
+      wordGroups: "id, folderId, name",
     });
 
     // Seeding Logic

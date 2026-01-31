@@ -75,15 +75,15 @@ const RAW_WORDS_MAP = {
 };
 
 // Flatten Words and Create Relationships
-let words: Word[] = [];
-let wordFolders: WordFolder[] = [];
+const words: Word[] = [];
+const wordFolders: WordFolder[] = [];
 let wordIdCounter = 1;
 
 Object.entries(RAW_WORDS_MAP).forEach(([folderId, terms]) => {
   terms.forEach((term) => {
     // Check if word already exists (handle cross-domain duplicates if any)
-    let existingWord = words.find((w) => w.term === term);
-    let wordId = existingWord ? existingWord.id : `w_${wordIdCounter++}`;
+    const existingWord = words.find((w) => w.term === term);
+    const wordId = existingWord ? existingWord.id : `w_${wordIdCounter++}`;
 
     if (!existingWord) {
       words.push({ id: wordId, term });

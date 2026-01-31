@@ -66,7 +66,7 @@ export default function ImportModal({
       } else {
         setMessage(`Error: ${result.message}`);
       }
-    } catch (err) {
+    } catch {
       setMessage("Failed to process data");
     } finally {
       setImporting(false);
@@ -95,7 +95,7 @@ export default function ImportModal({
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold tracking-tight">
-                Import into "{folderName}"
+                Import into &quot;{folderName}&quot;
               </h2>
               <button
                 onClick={onClose}

@@ -141,10 +141,7 @@ export async function bulkImportMeanings(
           }
 
           // Resolve word mapping
-          let word = await db.words
-            .where("term")
-            .equals(term.trim())
-            .first();
+          const word = await db.words.where("term").equals(term.trim()).first();
 
           if (!word) {
             stats.wordsSkipped++;

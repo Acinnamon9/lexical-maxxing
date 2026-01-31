@@ -15,15 +15,21 @@ export default function AppearanceSection() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem("theme") as
       | "system"
       | "light"
       | "dark"
       | "solarized";
-    if (savedTheme) {
-      setTheme(savedTheme);
-    }
+
+    // Defer state updates to avoid synchronous render cascade warning
+    const timer = setTimeout(() => {
+      if (savedTheme) {
+        setTheme(savedTheme);
+      }
+      setMounted(true);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const updateTheme = (newTheme: "system" | "light" | "dark" | "solarized") => {

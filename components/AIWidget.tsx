@@ -1,20 +1,17 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  useAgentAction,
-  AgentAction,
-  isReadAction,
-} from "@/hooks/useAgentAction";
+import { useAgentAction, isReadAction } from "@/hooks/useAgentAction";
+import { AgentAction, ToolResult } from "@/lib/types";
+
 import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import { v4 as uuidv4 } from "uuid";
-import { AgentMessage, AgentSession } from "@/lib/types";
+import type { AgentMessage, AgentSession } from "@/lib/types";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useSync } from "@/hooks/useSync";
 
@@ -27,10 +24,68 @@ export default function AIWidget() {
   const [showHistory, setShowHistory] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [canUndo, setCanUndo] = useState(false);
+  const [agentMode, setAgentMode] = useState<
+    "auto" | "ARCHITECT" | "SCHOLAR" | "NONE"
+  >("NONE");
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // AI Configuration from centralized hook
   const { config } = useAIConfig();
   const { triggerSync } = useSync();
+
+  // Resize State
+  const [width, setWidth] = useState(384); // Default w-96 = 384px
+  const [height, setHeight] = useState(500); // Default max-h-[500px]
+  const [isResizing, setIsResizing] = useState(false);
+  const [isResizingHeight, setIsResizingHeight] = useState(false);
+
+  // Reset size when closed
+  // Load size from localStorage on mount
+  useEffect(() => {
+    const savedWidth = localStorage.getItem("ai-widget-width");
+    const savedHeight = localStorage.getItem("ai-widget-height");
+    if (savedWidth) setWidth(parseInt(savedWidth, 10));
+    if (savedHeight) setHeight(parseInt(savedHeight, 10));
+  }, []);
+
+  // Save size when it changes (debounced/effect)
+  useEffect(() => {
+    localStorage.setItem("ai-widget-width", width.toString());
+    localStorage.setItem("ai-widget-height", height.toString());
+  }, [width, height]);
+
+  // Global Open Event
+  useEffect(() => {
+    const handleOpenEvent = (e: any) => {
+      const { query: incomingQuery, mode } = e.detail || {};
+      setIsOpen(true);
+      if (mode) setAgentMode(mode);
+      if (incomingQuery) {
+        setQuery(incomingQuery);
+        // Delay slightly to allow state to settle if we wanted to auto-send,
+        // but for now, just filling the query box and focusing is good.
+      }
+    };
+    window.addEventListener("ai-widget-open", handleOpenEvent);
+    return () => window.removeEventListener("ai-widget-open", handleOpenEvent);
+  }, []);
+
+  // Keyboard Shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle AI Widget: Cmd + J or Ctrl + J
+      if ((e.metaKey || e.ctrlKey) && e.key === "j") {
+        e.preventDefault();
+        setIsOpen((prev) => !prev);
+      }
+      // Minimize: Escape
+      if (e.key === "Escape" && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   // Load active session on mount
   useEffect(() => {
@@ -42,6 +97,59 @@ export default function AIWidget() {
     };
     loadLastSession();
   }, []);
+
+  // Resize Handlers
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const startResizingHeight = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizingHeight(true);
+  }, []);
+
+  const startResizingCorner = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    setIsResizingHeight(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+    setIsResizingHeight(false);
+  }, []);
+
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (isResizing) {
+        const newWidth = window.innerWidth - e.clientX - 24; // 24px right margin
+        if (newWidth > 320 && newWidth < 800) {
+          setWidth(newWidth);
+        }
+      }
+      if (isResizingHeight) {
+        // Calculate height based on distance from bottom
+        // Widget bottom is at approx 40px from viewport bottom (bottom-6 + mb-4)
+        const newHeight = window.innerHeight - e.clientY - 40;
+        if (newHeight > 300 && newHeight < window.innerHeight - 100) {
+          setHeight(newHeight);
+        }
+      }
+    },
+    [isResizing, isResizingHeight],
+  );
+
+  useEffect(() => {
+    if (isResizing || isResizingHeight) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+    }
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+    };
+  }, [isResizing, isResizingHeight, resize, stopResizing]);
 
   // Reactive Messages
   const messages = useLiveQuery(
@@ -64,8 +172,10 @@ export default function AIWidget() {
   const [pendingActions, setPendingActions] = useState<AgentAction[] | null>(
     null,
   );
-  const { executePlan, executeReadAction, undoLastPlan } = useAgentAction();
+  const { executePlan, executeReadAction, executeToolCall, undoLastPlan } =
+    useAgentAction();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const lastScrollTime = useRef<number>(0);
 
   // Context Awareness
   const params = useParams();
@@ -79,47 +189,195 @@ export default function AIWidget() {
     [folderId],
   );
 
-  // Visible Words Calculation
+  // Visible Words Calculation - Send all words in the folder to the AI context
   const visibleWords = useLiveQuery(async () => {
     if (!folderId) return [];
 
-    // Get all words in folder, sorted by wordId (Must match FolderDetailPage logic)
     const wordFolders = await db.wordFolders
       .where("folderId")
       .equals(folderId)
       .toArray();
-    wordFolders.sort((a, b) => a.wordId.localeCompare(b.wordId));
 
-    // Determine slice range
-    const CHUNK_SIZE = 15; // Must match FolderDetailPage
-    let start = 0;
-    let end = wordFolders.length;
+    const wordIds = wordFolders.map((wf) => wf.wordId);
+    if (wordIds.length === 0) return [];
 
-    if (chunkIndex !== undefined) {
-      start = chunkIndex * CHUNK_SIZE;
-      end = start + CHUNK_SIZE;
-    }
-
-    const visibleIds = wordFolders.slice(start, end).map((wf) => wf.wordId);
-    if (visibleIds.length === 0) return [];
-
-    const words = await db.words.bulkGet(visibleIds);
-    return words.filter((w) => !!w).map((w) => w!.term);
-  }, [folderId, chunkIndex]);
+    const words = await db.words.bulkGet(wordIds);
+    return words.filter((w) => !!w).map((w) => ({ id: w!.id, term: w!.term }));
+  }, [folderId]);
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const el = scrollRef.current;
+      // Only auto-scroll if user is already near the bottom (within 100px)
+      const isNearBottom =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+
+      if (isNearBottom) {
+        const now = Date.now();
+        if (now - lastScrollTime.current > 200) {
+          lastScrollTime.current = now;
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      }
     }
   }, [messages, isOpen, showHistory]);
 
-  const handleSend = async () => {
-    if (!query.trim()) return;
+  const performAgentLoop = async (
+    query: string,
+    sessionId: string,
+    agentMessageId: string,
+    toolResults?: Record<string, any>,
+  ) => {
+    try {
+      const { geminiKey: apiKey, geminiModel: model } = config;
+
+      // Use streaming endpoint
+      const res = await fetch("/api/agent/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: abortControllerRef.current?.signal,
+        body: JSON.stringify({
+          query,
+          apiKey: apiKey || undefined,
+          model: model,
+          provider: config.provider,
+          lmStudioBaseUrl: config.lmStudioBaseUrl,
+          lmStudioModel: config.lmStudioModel,
+          agentMode: agentMode,
+          toolResults, // Pass tool results if any
+          currentContext: {
+            folderId: folderId || null,
+            folderName: currentFolder?.name || null,
+            visibleWords: visibleWords || [],
+          },
+          messages: (messages || [])
+            .slice(-10)
+            .map((m) => ({ role: m.role, content: m.text })),
+        }),
+      });
+
+      console.log("[AIWidget] Sent context:", {
+        folderId,
+        folderName: currentFolder?.name,
+        visibleWordsCount: visibleWords?.length || 0,
+        hasToolResults: !!toolResults,
+      });
+
+      if (!res.ok || !res.body) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to contact Agent");
+      }
+
+      // Process SSE stream
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let streamedText = "";
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(trimmed.slice(6));
+
+              if (data.type === "delta" && data.content) {
+                streamedText += data.content;
+                await db.agentMessages.update(agentMessageId, {
+                  text: streamedText,
+                });
+              } else if (data.type === "end") {
+                const finalMessage = data.message || streamedText;
+                await db.agentMessages.update(agentMessageId, {
+                  text: finalMessage,
+                });
+
+                const actions: AgentAction[] = data.actions || [];
+                console.log("[AIWidget] Received actions:", actions.length);
+
+                // Check for TOOL_CALLS
+                const toolCalls = actions.filter((a) => a.type === "TOOL_CALL");
+                if (toolCalls.length > 0) {
+                  // Execute Tools
+                  const results: Record<string, any> = {};
+                  for (const call of toolCalls) {
+                    const { tool, params } = call.payload;
+                    // Update UI
+                    await db.agentMessages.update(agentMessageId, {
+                      text: finalMessage + `\n\n*Running tool: ${tool}...*`,
+                    });
+
+                    const result = await executeToolCall(tool, params);
+                    results[tool] = result;
+                  }
+
+                  // Recursive Loop
+                  await performAgentLoop(
+                    query,
+                    sessionId,
+                    agentMessageId,
+                    results,
+                  );
+                  return;
+                }
+
+                const readActions = actions.filter(isReadAction);
+                const writeActions = actions.filter(
+                  (a) => !isReadAction(a) && a.type !== "TOOL_CALL",
+                );
+
+                // Execute read actions
+                for (const action of readActions) {
+                  await executeReadAction(action);
+                }
+
+                // Set pending write actions
+                if (writeActions.length > 0) {
+                  setPendingActions(writeActions);
+                }
+              } else if (data.type === "error") {
+                throw new Error(data.error || "Stream error");
+              }
+            } catch (e) {
+              console.warn("Error parsing SSE:", e);
+            }
+          }
+        }
+      }
+    } catch (e: any) {
+      // If aborted, don't log error
+      if (e.name === "AbortError") return;
+
+      await db.agentMessages.add({
+        id: crypto.randomUUID(),
+        sessionId: sessionId,
+        role: "system",
+        text: `Error: ${e.message}`,
+        createdAt: Date.now(),
+      });
+    } finally {
+      setIsProcessing(false);
+      triggerSync();
+    }
+  };
+
+  const handleSend = async (forcedQuery?: string) => {
+    const activeQuery = forcedQuery || query;
+    if (!activeQuery.trim()) return;
 
     let activeSessionId = sessionId;
     const currentTimestamp = Date.now();
 
-    // Create new session if none exists
     if (!activeSessionId) {
       activeSessionId = crypto.randomUUID();
       await db.agentSessions.add({
@@ -135,7 +393,6 @@ export default function AIWidget() {
       });
     }
 
-    // Add User Message
     await db.agentMessages.add({
       id: crypto.randomUUID(),
       sessionId: activeSessionId,
@@ -144,100 +401,22 @@ export default function AIWidget() {
       createdAt: currentTimestamp,
     });
 
-    const userQuery = query; // Capture for API call
-    setQuery("");
+    const userQuery = activeQuery;
+    if (!forcedQuery) setQuery("");
     setIsProcessing(true);
 
-    try {
-      const { geminiKey: apiKey, geminiModel: model } = config;
+    abortControllerRef.current = new AbortController();
 
-      // ReAct Loop: Allow up to 3 iterations of read actions
-      const MAX_ITERATIONS = 3;
-      let iterations = 0;
-      let toolResults: Record<string, string> = {};
+    const agentMessageId = crypto.randomUUID();
+    await db.agentMessages.add({
+      id: agentMessageId,
+      sessionId: activeSessionId,
+      role: "agent",
+      text: "",
+      createdAt: Date.now(),
+    });
 
-      while (iterations < MAX_ITERATIONS) {
-        iterations++;
-
-        const res = await fetch("/api/agent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: userQuery,
-            apiKey: apiKey || undefined,
-            model: model,
-            currentContext: {
-              folderId: folderId || null,
-              folderName: currentFolder?.name || null,
-              visibleWords: visibleWords || [],
-            },
-            messages: (messages || [])
-              .slice(-10)
-              .map((m) => ({ role: m.role, content: m.text })),
-            toolResults:
-              Object.keys(toolResults).length > 0 ? toolResults : undefined,
-          }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok)
-          throw new Error(data.error || "Failed to contact Architect");
-
-        const agentResponseText = data.message || "I'm on it.";
-        const actions: AgentAction[] = data.actions || [];
-
-        // Separate read and write actions
-        const readActions = actions.filter(isReadAction);
-        const writeActions = actions.filter((a) => !isReadAction(a));
-
-        // If there are read actions, execute them and loop back
-        if (readActions.length > 0) {
-          console.log(
-            `[ReAct] Executing ${readActions.length} read action(s)...`,
-          );
-
-          for (const action of readActions) {
-            const result = await executeReadAction(action);
-            if (result) {
-              const key = `${action.type}_${JSON.stringify(action.payload)}`;
-              toolResults[key] = result;
-            }
-          }
-
-          // If there are ONLY read actions, continue the loop
-          if (writeActions.length === 0) {
-            continue;
-          }
-        }
-
-        // We have write actions or no more read actions - show response
-        await db.agentMessages.add({
-          id: crypto.randomUUID(),
-          sessionId: activeSessionId,
-          role: "agent",
-          text: agentResponseText,
-          createdAt: Date.now(),
-        });
-
-        if (writeActions.length > 0) {
-          setPendingActions(writeActions);
-        }
-
-        break; // Exit the loop - we're done
-      }
-    } catch (e: any) {
-      await db.agentMessages.add({
-        id: crypto.randomUUID(),
-        sessionId: activeSessionId,
-        role: "system",
-        text: `Error: ${e.message}`,
-        createdAt: Date.now(),
-      });
-    } finally {
-      setIsProcessing(false);
-      triggerSync();
-    }
+    await performAgentLoop(userQuery, activeSessionId, agentMessageId);
   };
 
   const handleConfirm = async () => {
@@ -270,6 +449,14 @@ export default function AIWidget() {
       setIsProcessing(false);
       triggerSync();
     }
+  };
+
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsProcessing(false);
   };
 
   const handleUndo = async () => {
@@ -327,6 +514,39 @@ export default function AIWidget() {
     setShowHistory(false);
   };
 
+  const handleSaveAsNote = async (content: string, title: string) => {
+    if (!folderId) {
+      alert("Please navigate to a folder to save notes.");
+      return;
+    }
+    await db.notes.add({
+      id: crypto.randomUUID(),
+      folderId,
+      title,
+      content,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+    // Optional: Visual feedback
+  };
+
+  // Handle external query requests (e.g. from NoteModal Study button)
+  useEffect(() => {
+    const handleTriggerQuery = (e: any) => {
+      const { query: incomingQuery, autoSend } = e.detail || {};
+      if (incomingQuery) {
+        setIsOpen(true);
+        setQuery(incomingQuery);
+        if (autoSend) {
+          handleSend(incomingQuery);
+        }
+      }
+    };
+    window.addEventListener("trigger-agent-query", handleTriggerQuery);
+    return () =>
+      window.removeEventListener("trigger-agent-query", handleTriggerQuery);
+  }, [handleSend]);
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">
       <AnimatePresence>
@@ -335,75 +555,150 @@ export default function AIWidget() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="pointer-events-auto bg-background border border-border rounded-xl shadow-2xl w-80 md:w-96 mb-4 overflow-hidden flex flex-col max-h-[500px]"
+            className="pointer-events-auto bg-background border border-border rounded-xl shadow-2xl mb-4 overflow-hidden flex flex-col relative transition-[width] duration-0 ease-linear"
+            style={{ width, height }}
           >
+            {/* Width Resizer Handle (Left) */}
+            <div
+              className="absolute left-0 top-0 bottom-0 w-1.5 cursor-ew-resize hover:bg-indigo-500/50 transition-colors z-50 flex items-center justify-center group"
+              onMouseDown={startResizing}
+            >
+              <div className="h-8 w-0.5 bg-border group-hover:bg-indigo-500 rounded-full transition-colors" />
+            </div>
+
+            {/* Height Resizer Handle (Top) */}
+            <div
+              className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize hover:bg-indigo-500/50 transition-colors z-50 flex items-center justify-center group"
+              onMouseDown={startResizingHeight}
+            >
+              <div className="w-8 h-0.5 bg-border group-hover:bg-indigo-500 rounded-full transition-colors" />
+            </div>
+
+            {/* Corner Resizer Handle (Top-Left) */}
+            <div
+              className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-51 hover:bg-indigo-500/50 transition-colors rounded-br-lg"
+              onMouseDown={startResizingCorner}
+            >
+              <div className="absolute top-1 left-1 w-2 h-2 border-t-2 border-l-2 border-border group-hover:border-indigo-500 rounded-tl-sm" />
+            </div>
+
             {/* Header */}
-            <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  {showHistory ? "History" : "The Architect"}
-                </span>
+            <div className="p-4 border-b border-border bg-muted/30 flex flex-col gap-2">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    {showHistory
+                      ? "History"
+                      : agentMode === "ARCHITECT"
+                        ? "Architect"
+                        : agentMode === "SCHOLAR"
+                          ? "Scholar"
+                          : agentMode === "NONE"
+                            ? "Raw Chat"
+                            : "Agent"}
+                  </span>
+                  {!showHistory && (
+                    <span className="text-[10px] text-muted-foreground font-mono opacity-60 truncate max-w-[100px]">
+                      •{" "}
+                      {config.provider === "gemini"
+                        ? config.geminiModel
+                        : config.lmStudioModel || "Local"}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setShowHistory(!showHistory)}
+                    className="p-1 text-muted-foreground hover:text-indigo-500 transition-colors"
+                    title="Chat History"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 20v-6M6 20V10M18 20V4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={handleNewChat}
+                    className="p-1 text-muted-foreground hover:text-green-500 transition-colors"
+                    title="New Chat"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 5v14M5 12h14" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-1 text-muted-foreground hover:text-foreground"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setShowHistory(!showHistory)}
-                  className="p-1 text-muted-foreground hover:text-indigo-500 transition-colors"
-                  title="Chat History"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+              {!showHistory && (
+                <div className="flex items-center gap-1 bg-muted/50 rounded-md p-0.5 self-start">
+                  <button
+                    onClick={() => setAgentMode("auto")}
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded transition-colors ${agentMode === "auto" ? "bg-indigo-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Auto-detect intent"
                   >
-                    <path d="M12 20v-6M6 20V10M18 20V4" />
-                  </svg>
-                </button>
-                <button
-                  onClick={handleNewChat}
-                  className="p-1 text-muted-foreground hover:text-green-500 transition-colors"
-                  title="New Chat"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    Auto
+                  </button>
+                  <button
+                    onClick={() => setAgentMode("ARCHITECT")}
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded transition-colors ${agentMode === "ARCHITECT" ? "bg-indigo-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Force Architect mode (actions)"
                   >
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-1 text-muted-foreground hover:text-foreground"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    Build
+                  </button>
+                  <button
+                    onClick={() => setAgentMode("SCHOLAR")}
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded transition-colors ${agentMode === "SCHOLAR" ? "bg-indigo-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="Force Scholar mode (explain)"
                   >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
+                    Ask
+                  </button>
+                  <button
+                    onClick={() => setAgentMode("NONE")}
+                    className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded transition-colors ${agentMode === "NONE" ? "bg-indigo-500 text-white" : "text-muted-foreground hover:text-foreground"}`}
+                    title="No system prompt, just chat"
+                  >
+                    Raw
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Content Area */}
@@ -439,12 +734,12 @@ export default function AIWidget() {
                 {!messages || messages.length === 0 ? (
                   <div className="flex justify-start">
                     <div className="max-w-[85%] rounded-lg p-3 text-sm bg-muted text-foreground border border-border">
-                      I'm the Architect. I can build folders and add words for
-                      you. Try 'Create a Biology folder'.
+                      I&apos;m the Architect. I can build folders and add words
+                      for you. Try &apos;Create a Biology folder&apos;.
                     </div>
                   </div>
                 ) : (
-                  messages.map((m) => (
+                  messages.map((m, index) => (
                     <div
                       key={m.id}
                       className={`flex group/msg relative ${
@@ -506,6 +801,37 @@ export default function AIWidget() {
                             <line x1="6" y1="6" x2="18" y2="18"></line>
                           </svg>
                         </button>
+
+                        {/* Save as Note Button (Agent only) */}
+                        {m.role === "agent" &&
+                          index > 0 &&
+                          messages[index - 1].role === "user" && (
+                            <button
+                              onClick={() =>
+                                handleSaveAsNote(
+                                  m.text,
+                                  messages[index - 1].text,
+                                )
+                              }
+                              className="absolute -top-2 -right-8 p-1 bg-background border border-border rounded-full opacity-0 group-hover/msg:opacity-100 transition-opacity hover:text-indigo-500 shadow-sm z-10"
+                              title="Save response as Note"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="10"
+                                height="10"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                <path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z" />
+                                <path d="M15 3v5h5" />
+                              </svg>
+                            </button>
+                          )}
                       </div>
                     </div>
                   ))
@@ -533,6 +859,18 @@ export default function AIWidget() {
                               `Move ${action.payload?.type} to folder ${action.payload?.targetFolderId}`}
                             {action.type === "NAVIGATE_TO" &&
                               `Navigate to ${action.payload?.view}`}
+                            {action.type === "UPDATE_FOLDER_METADATA" &&
+                              `Update folder ${action.payload?.id} aesthetics`}
+                            {action.type === "UPDATE_WORD_METADATA" &&
+                              `Color word "${action.payload?.term || action.payload?.id}"`}
+                            {action.type === "CREATE_NOTE" &&
+                              `Create note "${action.payload?.title}"`}
+                            {action.type === "UPDATE_NOTE" &&
+                              `Update note "${action.payload?.id}"`}
+                            {action.type === "DELETE_NOTE" &&
+                              `Delete note "${action.payload?.id}"`}
+                            {action.type === "CREATE_DOUBT" &&
+                              `Ask about "${action.payload?.term || action.payload?.query}"`}
                           </li>
                         ))}
                       </ul>
@@ -556,19 +894,27 @@ export default function AIWidget() {
 
                 {isProcessing && (
                   <div className="flex justify-start">
-                    <div className="bg-muted text-foreground border border-border rounded-lg p-3 text-xs italic flex items-center gap-2">
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "150ms" }}
-                      />
-                      <span
-                        className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
-                        style={{ animationDelay: "300ms" }}
-                      />
+                    <div className="bg-muted text-foreground border border-border rounded-lg p-3 text-xs italic flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "0ms" }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "150ms" }}
+                        />
+                        <span
+                          className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce"
+                          style={{ animationDelay: "300ms" }}
+                        />
+                      </div>
+                      <button
+                        onClick={handleStop}
+                        className="px-2 py-1 bg-red-500/20 text-red-500 rounded text-[10px] font-bold uppercase hover:bg-red-500/30 transition-colors"
+                      >
+                        Stop
+                      </button>
                     </div>
                   </div>
                 )}
@@ -618,7 +964,7 @@ export default function AIWidget() {
                   disabled={isProcessing || !!pendingActions}
                 />
                 <button
-                  onClick={handleSend}
+                  onClick={() => handleSend()}
                   disabled={!query.trim() || isProcessing || !!pendingActions}
                   className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                 >

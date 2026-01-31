@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/lib/db";
 import { useState } from "react";
@@ -112,32 +112,58 @@ export default function ChunkPage() {
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
       >
         {chunkWords.map((word) => (
-          <motion.button
+          <motion.div
             key={word.id}
             variants={item}
             whileHover={{ scale: 1.05, rotate: 1 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setSelectedWord(word)}
-            className={`p-6 border rounded-2xl transition-all text-left group relative overflow-hidden ${word.state.recallScore >= 5
-              ? "bg-green-500/5 border-green-500/30 hover:border-green-500/50"
-              : "bg-background border-border hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10"
-              }`}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setSelectedWord(word);
+              }
+            }}
+            className={`p-6 border rounded-2xl transition-all text-left group relative cursor-pointer overflow-hidden ${
+              word.state.recallScore >= 5
+                ? "bg-green-500/5 border-green-500/30 hover:border-green-500/50"
+                : "bg-background border-border hover:border-blue-500 hover:shadow-2xl hover:shadow-blue-500/10"
+            }`}
           >
-            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-blue-500"
+            <div className="absolute top-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 z-20">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (
+                    confirm(
+                      `Remove "${word.term}" from this folder? The word will remain in the database.`,
+                    )
+                  ) {
+                    db.wordFolders.delete([word.id, folderId]);
+                  }
+                }}
+                className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-full transition-all"
+                title="Remove from Folder"
               >
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+              </button>
             </div>
 
             <div className="flex justify-between items-start mb-4">
@@ -145,12 +171,13 @@ export default function ChunkPage() {
                 {word.term}
               </h3>
               <span
-                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${word.state.recallScore >= 5
-                  ? "bg-green-500 text-white"
-                  : word.state.recallScore >= 2
-                    ? "bg-green-500/10 text-green-600"
-                    : "bg-muted text-muted-foreground"
-                  }`}
+                className={`text-[10px] px-2.5 py-1 rounded-md font-black tracking-widest ${
+                  word.state.recallScore >= 5
+                    ? "bg-green-500 text-white"
+                    : word.state.recallScore >= 2
+                      ? "bg-green-500/10 text-green-600"
+                      : "bg-muted text-muted-foreground"
+                }`}
               >
                 {word.state.recallScore >= 5
                   ? "MASTERED"
@@ -163,7 +190,7 @@ export default function ChunkPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
               Inspect Meaning
             </div>
-          </motion.button>
+          </motion.div>
         ))}
       </motion.main>
 
