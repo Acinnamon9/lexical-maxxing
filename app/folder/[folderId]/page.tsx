@@ -9,7 +9,8 @@ import ImportModal from "@/components/import/ImportModal";
 import CreateFolderModal from "@/components/folders/CreateFolderModal";
 import NoteList from "@/components/notes/NoteList";
 import NoteModal from "@/components/notes/NoteModal";
-import { EnrichedWord, Note } from "@/lib/types";
+import BulkImportModal from "@/components/import/BulkImportModal";
+import { EnrichedWord, Note, Folder } from "@/lib/types";
 import { motion } from "framer-motion";
 import {
   DndContext,
@@ -60,7 +61,9 @@ export default function FolderDetailPage() {
     while (current) {
       path.unshift({ id: current.id, name: current.name });
       if (!current.parentId) break;
-      const parent: any = await db.folders.get(current.parentId);
+      const parent = (await db.folders.get(current.parentId)) as
+        | Folder
+        | undefined;
       if (!parent) break;
       current = parent;
     }
@@ -108,6 +111,7 @@ export default function FolderDetailPage() {
   // Notes State
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showNoteImport, setShowNoteImport] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [editingNote, setEditingNote] = useState<Note | undefined>(undefined);
 
@@ -170,7 +174,7 @@ export default function FolderDetailPage() {
     setIsEditingTitle(false);
   };
 
-  const handleStartSubfolderEdit = (folder: any) => {
+  const handleStartSubfolderEdit = (folder: Folder) => {
     setEditingSubfolderId(folder.id);
     setSubfolderEditName(folder.name);
   };
@@ -314,6 +318,27 @@ export default function FolderDetailPage() {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
               New Note
+            </button>
+            <button
+              onClick={() => setShowNoteImport(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-xl text-xs font-bold hover:bg-muted transition-all active:scale-95 shadow-sm"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" x2="12" y1="3" y2="15" />
+              </svg>
+              Paste JSON Notes
             </button>
           </div>
         </header>
@@ -494,6 +519,14 @@ export default function FolderDetailPage() {
           folderName={getFolder.name}
           onClose={() => setShowImport(false)}
           onSuccess={() => {}}
+        />
+
+        <BulkImportModal
+          isOpen={showNoteImport}
+          onClose={() => setShowNoteImport(false)}
+          onSuccess={() => {}}
+          mode="notes"
+          targetId={folderId}
         />
       </div>
     </DndContext>

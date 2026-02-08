@@ -4,6 +4,7 @@ import {
   ARCHITECT_SYSTEM_PROMPT,
   SCHOLAR_SYSTEM_PROMPT,
 } from "@/lib/ai/prompts";
+import { AgentAction } from "@/lib/types";
 
 interface AgentRequest {
   query: string;
@@ -184,7 +185,7 @@ export async function POST(req: Request) {
             }
 
             // Send final message with parsed actions (for ARCHITECT/SCHOLAR modes)
-            let actions: any[] = [];
+            let actions: AgentAction[] = [];
             let message = fullResponse;
 
             if (intent !== "NONE") {
@@ -199,7 +200,7 @@ export async function POST(req: Request) {
                   if (match) cleanResponse = match[1].trim();
                 }
                 const parsed = JSON.parse(cleanResponse);
-                actions = parsed.actions || [];
+                actions = (parsed.actions as AgentAction[]) || [];
                 message = parsed.message || fullResponse;
 
                 // Safety: strip actions from Scholar
@@ -217,10 +218,11 @@ export async function POST(req: Request) {
                 `data: ${JSON.stringify({ type: "end", actions, message })}\n\n`,
               ),
             );
-          } catch (err: any) {
+          } catch (err: unknown) {
+            const e = err as Error;
             controller.enqueue(
               encoder.encode(
-                `data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`,
+                `data: ${JSON.stringify({ type: "error", error: e.message })}\n\n`,
               ),
             );
           } finally {
@@ -284,7 +286,7 @@ export async function POST(req: Request) {
           }
 
           // Parse final response
-          let actions: any[] = [];
+          let actions: AgentAction[] = [];
           let message = fullResponse;
 
           if (intent !== "NONE") {
@@ -310,7 +312,7 @@ export async function POST(req: Request) {
               }
 
               const parsed = JSON.parse(cleanResponse);
-              actions = parsed.actions || [];
+              actions = (parsed.actions as AgentAction[]) || [];
               message = parsed.message || fullResponse;
 
               // Safety: strip actions from Scholar
@@ -329,11 +331,12 @@ export async function POST(req: Request) {
               `data: ${JSON.stringify({ type: "end", actions, message })}\n\n`,
             ),
           );
-        } catch (err: any) {
-          console.error("Gemini Stream Error:", err);
+        } catch (err: unknown) {
+          const e = err as Error;
+          console.error("Gemini Stream Error:", e);
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "error", error: err.message })}\n\n`,
+              `data: ${JSON.stringify({ type: "error", error: e.message })}\n\n`,
             ),
           );
         } finally {

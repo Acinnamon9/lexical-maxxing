@@ -47,7 +47,8 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ definition: result.text });
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     return NextResponse.json(
       {
         error: `Internal Error: ${error.message || "Failed to generate definition"}`,

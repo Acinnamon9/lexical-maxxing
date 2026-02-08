@@ -2,7 +2,113 @@ import { db } from "@/lib/db";
 import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 
-import { ActionType, AgentAction } from "@/lib/types";
+import {
+  ActionType,
+  AgentAction,
+  ToolResult,
+  ToolName,
+  AgentMessage,
+  Folder,
+  Word,
+} from "@/lib/types";
+
+// Type definitions for payloads to replace 'any' casting
+interface FolderPayload {
+  id?: string;
+  parentId?: string;
+  name?: string;
+  query?: string;
+  tempId?: string;
+  parentTempId?: string;
+  parentName?: string;
+  emoji?: string;
+  color?: string;
+}
+
+interface WordPayload {
+  term: string;
+  folderName?: string;
+  parentTempId?: string;
+  id?: string;
+  color?: string;
+}
+
+interface DeletePayload {
+  type: "folder" | "word" | "doubt";
+  id: string;
+}
+
+interface RenamePayload {
+  type: "folder" | "word";
+  id: string;
+  newName: string;
+}
+
+interface MovePayload {
+  type: "folder" | "word";
+  id: string;
+  targetFolderId: string;
+}
+
+interface NavigatePayload {
+  view: "home" | "folder";
+  id?: string;
+}
+
+interface NotePayload {
+  id?: string;
+  title?: string;
+  content?: string;
+  folderId?: string;
+  folderName?: string;
+}
+
+interface DoubtPayload {
+  term?: string;
+  folderName?: string;
+  query: string;
+  folderId?: string;
+}
+
+interface BulkWordsPayload {
+  terms: string[];
+  folderName?: string;
+  folderId?: string;
+}
+
+interface BulkMetadataPayload {
+  updates: { id?: string; term?: string; color?: string }[];
+  folderId?: string;
+}
+
+interface BulkMovePayload {
+  itemIds: string[];
+  targetFolderId: string;
+  type: "folder" | "word";
+}
+
+interface MasteryPayload {
+  wordId?: string;
+  term?: string;
+  score: number;
+}
+
+interface ReviewPayload {
+  folderId: string;
+  mode?: "spaced_rep" | "random" | "weak_first";
+}
+
+interface KnowledgePayload {
+  wordId1?: string;
+  wordId2?: string;
+  term1?: string;
+  term2?: string;
+  relationType?: "synonym" | "antonym" | "related";
+  name?: string;
+  wordIds?: string[];
+  terms?: string[];
+  folderId?: string;
+}
 
 // Helper to check if action is a read-only action
 export const isReadAction = (action: AgentAction): boolean => {
@@ -17,7 +123,8 @@ export const useAgentAction = () => {
   const executeReadAction = useCallback(
     async (action: AgentAction): Promise<string | null> => {
       if (action.type === "GET_FOLDER_STRUCTURE") {
-        const { parentId } = action.payload || {};
+        const payload = action.payload as FolderPayload;
+        const { parentId } = payload || {};
         const folders = parentId
           ? await db.folders.where("parentId").equals(parentId).toArray()
           : await db.folders.toArray();
@@ -32,10 +139,20 @@ export const useAgentAction = () => {
       }
 
       if (action.type === "SEARCH_FOLDERS") {
-        const { query } = action.payload || {};
+        const payload = action.payload as FolderPayload;
+        const { query } = payload || {};
         if (!query) return JSON.stringify([]);
 
-        const results: any[] = [];
+        const results: (
+          | {
+              type: "folder";
+              id: string;
+              name: string;
+              parentId: string | null;
+            }
+          | { type: "word"; id: string; name: string }
+          | { type: "note"; id: string; name: string; folderId: string }
+        )[] = [];
         const lowerQuery = query.toLowerCase();
 
         // 1. Search Folders
@@ -45,7 +162,7 @@ export const useAgentAction = () => {
         );
         results.push(
           ...folderMatches.map((f) => ({
-            type: "folder",
+            type: "folder" as const,
             id: f.id,
             name: f.name,
             parentId: f.parentId,
@@ -59,7 +176,7 @@ export const useAgentAction = () => {
         );
         results.push(
           ...wordMatches.map((w) => ({
-            type: "word",
+            type: "word" as const,
             id: w.id,
             name: w.term,
           })),
@@ -74,7 +191,7 @@ export const useAgentAction = () => {
         );
         results.push(
           ...noteMatches.map((n) => ({
-            type: "note",
+            type: "note" as const,
             id: n.id,
             name: n.title,
             folderId: n.folderId,
@@ -92,14 +209,14 @@ export const useAgentAction = () => {
   // Execute tool calls for multi-turn agent loop
   const executeToolCall = useCallback(
     async (
-      toolName: string,
-      params: Record<string, any>,
-    ): Promise<{ success: boolean; data: any; error?: string }> => {
+      toolName: ToolName | string,
+      params: Record<string, unknown>,
+    ): Promise<ToolResult> => {
       try {
         switch (toolName) {
           case "GET_ALL_WORDS": {
-            const { folderId } = params;
-            let words: any[] = [];
+            const { folderId } = params as { folderId?: string };
+            let words: Word[] = [];
 
             if (folderId && folderId !== "current") {
               const wordLinks = await db.wordFolders
@@ -123,11 +240,15 @@ export const useAgentAction = () => {
               recallScore: stateMap.get(w.id)?.recallScore || 0,
             }));
 
-            return { success: true, data: enrichedWords };
+            return {
+              tool: "GET_ALL_WORDS",
+              success: true,
+              data: enrichedWords,
+            };
           }
 
           case "GET_FOLDER_CONTENTS": {
-            const { folderId } = params;
+            const { folderId } = params as { folderId?: string };
             const allFolders = await db.folders.toArray();
             const subfolders = folderId
               ? allFolders.filter((f) => f.parentId === folderId)
@@ -141,6 +262,7 @@ export const useAgentAction = () => {
               : [];
 
             return {
+              tool: "GET_FOLDER_CONTENTS",
               success: true,
               data: {
                 subfolders: subfolders.map((f) => ({
@@ -154,9 +276,14 @@ export const useAgentAction = () => {
           }
 
           case "SEARCH_WORDS": {
-            const { query } = params;
+            const { query } = params as { query?: string };
             if (!query)
-              return { success: false, data: null, error: "No query provided" };
+              return {
+                tool: "SEARCH_WORDS",
+                success: false,
+                data: null,
+                error: "No query provided",
+              };
 
             const allWords = await db.words.toArray();
             const matches = allWords.filter((w) =>
@@ -164,6 +291,7 @@ export const useAgentAction = () => {
             );
 
             return {
+              tool: "SEARCH_WORDS",
               success: true,
               data: matches.map((w) => ({
                 id: w.id,
@@ -174,13 +302,23 @@ export const useAgentAction = () => {
           }
 
           case "GET_WORD_DETAILS": {
-            const { wordId, term } = params;
+            const { wordId, term } = params as {
+              wordId?: string;
+              term?: string;
+            };
             let word = wordId
               ? await db.words.get(wordId)
-              : await db.words.where("term").equalsIgnoreCase(term).first();
+              : term
+                ? await db.words.where("term").equalsIgnoreCase(term).first()
+                : undefined;
 
             if (!word)
-              return { success: false, data: null, error: "Word not found" };
+              return {
+                tool: "GET_WORD_DETAILS",
+                success: false,
+                data: null,
+                error: "Word not found",
+              };
 
             const state = await db.wordStates.get(word.id);
             const meanings = await db.wordMeanings
@@ -197,6 +335,7 @@ export const useAgentAction = () => {
               .toArray();
 
             return {
+              tool: "GET_WORD_DETAILS",
               success: true,
               data: {
                 ...word,
@@ -211,8 +350,15 @@ export const useAgentAction = () => {
           case "GET_FOLDER_HIERARCHY": {
             const allFolders = await db.folders.toArray();
 
+            interface FolderNode {
+              id: string;
+              name: string;
+              emoji?: string;
+              children: FolderNode[];
+            }
+
             // Build tree structure
-            const buildTree = (parentId: string | null): any[] => {
+            const buildTree = (parentId: string | null): FolderNode[] => {
               return allFolders
                 .filter((f) => f.parentId === parentId)
                 .map((f) => ({
@@ -223,11 +369,15 @@ export const useAgentAction = () => {
                 }));
             };
 
-            return { success: true, data: buildTree(null) };
+            return {
+              tool: "GET_FOLDER_HIERARCHY",
+              success: true,
+              data: buildTree(null),
+            };
           }
 
           case "COUNT_WORDS": {
-            const { folderId } = params;
+            const { folderId } = params as { folderId?: string };
 
             if (folderId) {
               const wordLinks = await db.wordFolders
@@ -235,12 +385,14 @@ export const useAgentAction = () => {
                 .equals(folderId)
                 .toArray();
               return {
+                tool: "COUNT_WORDS",
                 success: true,
                 data: { count: wordLinks.length, folderId },
               };
             } else {
               const totalWords = await db.words.count();
               return {
+                tool: "COUNT_WORDS",
                 success: true,
                 data: { count: totalWords, scope: "global" },
               };
@@ -249,13 +401,20 @@ export const useAgentAction = () => {
 
           default:
             return {
+              tool: toolName as ToolName,
               success: false,
               data: null,
               error: `Unknown tool: ${toolName}`,
             };
         }
-      } catch (e: any) {
-        return { success: false, data: null, error: e.message };
+      } catch (err: unknown) {
+        const e = err as Error;
+        return {
+          tool: toolName as ToolName,
+          success: false,
+          data: null,
+          error: e.message,
+        };
       }
     },
     [],
@@ -270,8 +429,8 @@ export const useAgentAction = () => {
       for (const action of actions) {
         try {
           if (action.type === "CREATE_FOLDER") {
-            const { name, tempId, parentTempId, parentName } =
-              action.payload || {};
+            const payload = action.payload as FolderPayload;
+            const { name, tempId, parentTempId, parentName } = payload || {};
             if (!name) {
               log.push("Skipped CREATE_FOLDER: No folder name provided.");
               continue;
@@ -297,7 +456,7 @@ export const useAgentAction = () => {
             let folderId = existing?.id;
 
             if (!existing) {
-              const { emoji, color } = action.payload || {};
+              const { emoji, color } = payload || {};
               folderId = crypto.randomUUID();
               await db.folders.add({
                 id: folderId,
@@ -310,7 +469,7 @@ export const useAgentAction = () => {
               // Inverse: DELETE this folder
               inverseActions.push({
                 type: "DELETE_ITEM",
-                payload: { type: "folder", id: folderId },
+                payload: { type: "folder", id: folderId } as DeletePayload,
               });
             } else {
               log.push(`Folder already exists: ${name}`);
@@ -322,7 +481,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "ADD_WORD") {
-            const { term, folderName, parentTempId } = action.payload || {};
+            const payload = action.payload as WordPayload;
+            const { term, folderName, parentTempId } = payload || {};
             if (!term) {
               log.push("Skipped ADD_WORD: No term provided.");
               continue;
@@ -340,13 +500,6 @@ export const useAgentAction = () => {
                 .first();
               if (folder) folderId = folder.id;
             }
-
-            // If no folder specified, maybe try to find "Inbox" or "General", else skip/error
-            // For now, if no folder, we can't link it strictly.
-            // But wait, words CAN exist without folders in some schemas, but here we strictly link them
-            // based on `wordFolders`.
-            // Let's create a "General" folder if none found?
-            // Or just fail gracefully for now.
 
             if (!folderId) {
               log.push(`Skipped "${term}": target folder not found.`);
@@ -385,14 +538,15 @@ export const useAgentAction = () => {
                 // Inverse: DELETE this word
                 inverseActions.push({
                   type: "DELETE_ITEM",
-                  payload: { type: "word", id: wordId },
+                  payload: { type: "word", id: wordId } as DeletePayload,
                 });
               }
             }
           }
 
           if (action.type === "DELETE_ITEM") {
-            const { type, id } = action.payload || {};
+            const payload = action.payload as DeletePayload;
+            const { type, id } = payload || {};
             if (!id) {
               log.push("Skipped DELETE_ITEM: No ID provided.");
               continue;
@@ -404,14 +558,15 @@ export const useAgentAction = () => {
               await db.folders.delete(id);
               log.push(`Deleted folder ${id}`);
               if (originalFolder) {
+                const parentFolder = originalFolder.parentId
+                  ? await db.folders.get(originalFolder.parentId)
+                  : null;
                 inverseActions.push({
                   type: "CREATE_FOLDER",
                   payload: {
                     name: originalFolder.name,
-                    parentName: originalFolder.parentId
-                      ? (await db.folders.get(originalFolder.parentId))?.name
-                      : undefined,
-                  },
+                    parentName: parentFolder?.name,
+                  } as FolderPayload,
                 });
               }
             } else if (type === "word") {
@@ -426,7 +581,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "RENAME_ITEM") {
-            const { type, id, newName } = action.payload || {};
+            const payload = action.payload as RenamePayload;
+            const { type, id, newName } = payload || {};
             if (!id || !newName) {
               log.push("Skipped RENAME_ITEM: Missing ID or newName.");
               continue;
@@ -442,12 +598,15 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "UPDATE_FOLDER_METADATA") {
-            const { id, emoji, color } = action.payload || {};
+            const payload = action.payload as FolderPayload;
+            const { id, emoji, color } = payload || {};
             if (!id) {
               log.push("Skipped UPDATE_FOLDER_METADATA: Missing ID.");
               continue;
             }
-            const update: any = { updatedAt: Date.now() };
+            const update: Partial<Folder> & { updatedAt: number } = {
+              updatedAt: Date.now(),
+            };
             if (emoji !== undefined) update.emoji = emoji;
             if (color !== undefined) update.color = color;
             await db.folders.update(id, update);
@@ -455,7 +614,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "UPDATE_WORD_METADATA") {
-            const { id, term, color } = action.payload || {};
+            const payload = action.payload as WordPayload;
+            const { id, term, color } = payload || {};
             if (!id && !term) {
               log.push("Skipped UPDATE_WORD_METADATA: Missing ID or Term.");
               continue;
@@ -479,7 +639,7 @@ export const useAgentAction = () => {
             }
 
             if (targetId) {
-              const update: any = {};
+              const update: Partial<Word> = {};
               if (color !== undefined) update.color = color;
               await db.words.update(targetId, update);
               log.push(`Updated metadata for word "${term || targetId}"`);
@@ -491,7 +651,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "MOVE_ITEM") {
-            const { type, id, targetFolderId } = action.payload || {};
+            const payload = action.payload as MovePayload;
+            const { type, id, targetFolderId } = payload || {};
             if (!id || !targetFolderId) {
               log.push("Skipped MOVE_ITEM: Missing ID or targetFolderId.");
               continue;
@@ -512,7 +673,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "NAVIGATE_TO") {
-            const { view, id } = action.payload || {};
+            const payload = action.payload as NavigatePayload;
+            const { view, id } = payload || {};
             if (view === "home") {
               router.push("/");
               log.push("Navigated to Home");
@@ -524,8 +686,8 @@ export const useAgentAction = () => {
 
           // NOTES ACTIONS
           if (action.type === "CREATE_NOTE") {
-            const { title, content, folderId, folderName } =
-              action.payload || {};
+            const payload = action.payload as NotePayload;
+            const { title, content, folderId, folderName } = payload || {};
             if (!title) {
               log.push("Skipped CREATE_NOTE: Missing title.");
               continue;
@@ -540,15 +702,7 @@ export const useAgentAction = () => {
               if (folder) targetFolderId = folder.id;
             }
 
-            // Fallback to "Inbox" or similar if no folder provided,
-            // but for now let's just create it if we have a folderId, OR skip.
-            // Actually, we can create a note without a folderId if the schema allows,
-            // but our schema enforces strict folder structure usually?
-            // The Note type has folderId. Let's assume we need one.
-
             if (!targetFolderId) {
-              // Try to find currently viewing folder from context perhaps?
-              // But usually context is injected into the payload by the prompt logic.
               log.push("Skipped CREATE_NOTE: No target folder identified.");
               continue;
             }
@@ -567,12 +721,13 @@ export const useAgentAction = () => {
             // Inverse: DELETE note
             inverseActions.push({
               type: "DELETE_NOTE",
-              payload: { id: noteId },
+              payload: { id: noteId } as NotePayload,
             });
           }
 
           if (action.type === "UPDATE_NOTE") {
-            const { id, title, content } = action.payload || {};
+            const payload = action.payload as NotePayload;
+            const { id, title, content } = payload || {};
             if (!id) {
               log.push("Skipped UPDATE_NOTE: No ID provided.");
               continue;
@@ -584,7 +739,9 @@ export const useAgentAction = () => {
               continue;
             }
 
-            const updates: any = { updatedAt: Date.now() };
+            const updates: Partial<NotePayload> & { updatedAt: number } = {
+              updatedAt: Date.now(),
+            };
             if (title) updates.title = title;
             if (content) updates.content = content;
 
@@ -598,12 +755,13 @@ export const useAgentAction = () => {
                 id,
                 title: originalNote.title,
                 content: originalNote.content,
-              },
+              } as NotePayload,
             });
           }
 
           if (action.type === "DELETE_NOTE") {
-            const { id } = action.payload || {};
+            const payload = action.payload as NotePayload;
+            const { id } = payload || {};
             if (!id) continue;
 
             const originalNote = await db.notes.get(id);
@@ -618,18 +776,19 @@ export const useAgentAction = () => {
                   title: originalNote.title,
                   content: originalNote.content,
                   folderId: originalNote.folderId,
-                },
+                } as NotePayload,
               });
             }
           }
 
           if (action.type === "CREATE_DOUBT") {
+            const payload = action.payload as DoubtPayload;
             const {
               term,
               folderName,
               query,
               folderId: directFolderId,
-            } = action.payload || {};
+            } = payload || {};
             if (!query) {
               log.push("Skipped CREATE_DOUBT: Missing query.");
               continue;
@@ -698,7 +857,7 @@ export const useAgentAction = () => {
             // Inverse: DELETE doubt
             inverseActions.push({
               type: "DELETE_ITEM",
-              payload: { type: "doubt" as any, id: doubtId },
+              payload: { type: "doubt", id: doubtId } as DeletePayload,
             });
           }
 
@@ -707,13 +866,14 @@ export const useAgentAction = () => {
           // ========================================
 
           if (action.type === "BULK_ADD_WORDS") {
+            const payload = action.payload as BulkWordsPayload;
             const {
               terms,
               folderName,
               folderId: directFolderId,
-            } = action.payload || {};
-            if (!terms || !Array.isArray(terms) || terms.length === 0) {
-              log.push("Skipped BULK_ADD_WORDS: No terms provided.");
+            } = payload || {};
+            if (!terms || !Array.isArray(terms)) {
+              log.push("Skipped BULK_ADD_WORDS: Missing terms.");
               continue;
             }
 
@@ -731,20 +891,15 @@ export const useAgentAction = () => {
               continue;
             }
 
-            let addedCount = 0;
             for (const term of terms) {
-              if (!term || typeof term !== "string") continue;
-
-              // Check if word exists
               let word = await db.words
                 .where("term")
-                .equalsIgnoreCase(term.trim())
+                .equalsIgnoreCase(term)
                 .first();
-              let wordId = word?.id;
-
-              if (!wordId) {
-                wordId = crypto.randomUUID();
-                await db.words.add({ id: wordId, term: term.trim() });
+              if (!word) {
+                const wordId = crypto.randomUUID();
+                word = { id: wordId, term };
+                await db.words.add(word);
                 await db.wordStates.add({
                   wordId,
                   recognitionScore: 0,
@@ -756,51 +911,51 @@ export const useAgentAction = () => {
                 });
               }
 
-              // Link to folder if not already linked
-              const existingLink = await db.wordFolders.get([
-                wordId,
+              // Check if already in folder
+              const exists = await db.wordFolders.get([
+                word.id,
                 targetFolderId,
               ]);
-              if (!existingLink) {
-                await db.wordFolders.add({ wordId, folderId: targetFolderId });
-                addedCount++;
+              if (!exists) {
+                await db.wordFolders.add({
+                  wordId: word.id,
+                  folderId: targetFolderId,
+                });
               }
             }
-
-            log.push(`Added ${addedCount} words to folder.`);
+            log.push(`Bulk added ${terms.length} words to folder.`);
           }
 
           if (action.type === "BULK_UPDATE_WORD_METADATA") {
-            const { updates, folderId } = action.payload || {};
-            if (!updates || !Array.isArray(updates) || updates.length === 0) {
-              log.push(
-                "Skipped BULK_UPDATE_WORD_METADATA: No updates provided.",
-              );
+            const payload = action.payload as BulkMetadataPayload;
+            const { updates, folderId } = payload || {};
+            if (!updates || !Array.isArray(updates)) {
+              log.push("Skipped BULK_UPDATE_WORD_METADATA: Missing updates.");
               continue;
             }
 
             let updatedCount = 0;
             for (const update of updates) {
-              const { term, id, color } = update || {};
-              if (!term && !id) continue;
+              let targetId = update.id;
+              if (!targetId && update.term) {
+                const word = await db.words
+                  .where("term")
+                  .equalsIgnoreCase(update.term)
+                  .first();
+                if (word) targetId = word.id;
+              }
 
-              let word = id
-                ? await db.words.get(id)
-                : await db.words.where("term").equalsIgnoreCase(term).first();
-
-              if (word) {
-                const changes: any = {};
-                if (color !== undefined) changes.color = color;
-                await db.words.update(word.id, changes);
+              if (targetId) {
+                await db.words.update(targetId, { color: update.color });
                 updatedCount++;
               }
             }
-
-            log.push(`Updated metadata for ${updatedCount} words.`);
+            log.push(`Bulk updated ${updatedCount} words.`);
           }
 
           if (action.type === "BULK_MOVE_ITEMS") {
-            const { itemIds, targetFolderId, type } = action.payload || {};
+            const payload = action.payload as BulkMovePayload;
+            const { itemIds, targetFolderId, type } = payload || {};
             if (!itemIds || !Array.isArray(itemIds) || !targetFolderId) {
               log.push(
                 "Skipped BULK_MOVE_ITEMS: Missing itemIds or targetFolderId.",
@@ -832,7 +987,8 @@ export const useAgentAction = () => {
           // ========================================
 
           if (action.type === "SET_WORD_MASTERY") {
-            const { wordId, term, score } = action.payload || {};
+            const payload = action.payload as MasteryPayload;
+            const { wordId, term, score } = payload || {};
             if (score === undefined || score < 0 || score > 5) {
               log.push(
                 "Skipped SET_WORD_MASTERY: Invalid score (must be 0-5).",
@@ -866,7 +1022,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "SCHEDULE_REVIEW") {
-            const { folderId, mode = "random" } = action.payload || {};
+            const payload = action.payload as ReviewPayload;
+            const { folderId, mode = "random" } = payload || {};
             if (!folderId) {
               log.push("Skipped SCHEDULE_REVIEW: Missing folderId.");
               continue;
@@ -889,7 +1046,7 @@ export const useAgentAction = () => {
             await db.reviewSessions.add({
               id: sessionId,
               folderId,
-              mode: mode as "spaced_rep" | "random" | "weak_first",
+              mode,
               wordIds,
               currentIndex: 0,
               completedIds: [],
@@ -905,7 +1062,8 @@ export const useAgentAction = () => {
           // ========================================
 
           if (action.type === "DUPLICATE_FOLDER") {
-            const { folderId, newName } = action.payload || {};
+            const payload = action.payload as FolderPayload;
+            const { id: folderId, name: newName } = payload || {};
             if (!folderId) {
               log.push("Skipped DUPLICATE_FOLDER: Missing folderId.");
               continue;
@@ -945,7 +1103,11 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "MERGE_FOLDERS") {
-            const { sourceId, targetId } = action.payload || {};
+            const payload = action.payload as {
+              sourceId: string;
+              targetId: string;
+            };
+            const { sourceId, targetId } = payload || {};
             if (!sourceId || !targetId) {
               log.push("Skipped MERGE_FOLDERS: Missing sourceId or targetId.");
               continue;
@@ -997,13 +1159,14 @@ export const useAgentAction = () => {
           // ========================================
 
           if (action.type === "LINK_WORDS") {
+            const payload = action.payload as KnowledgePayload;
             const {
               wordId1,
               wordId2,
               term1,
               term2,
               relationType = "related",
-            } = action.payload || {};
+            } = payload || {};
 
             let resolvedId1 = wordId1;
             let resolvedId2 = wordId2;
@@ -1032,7 +1195,7 @@ export const useAgentAction = () => {
               id: crypto.randomUUID(),
               wordId1: resolvedId1,
               wordId2: resolvedId2,
-              relationType: relationType as any,
+              relationType: relationType as "synonym" | "antonym" | "related",
               createdAt: Date.now(),
             });
 
@@ -1042,7 +1205,8 @@ export const useAgentAction = () => {
           }
 
           if (action.type === "CREATE_WORD_GROUP") {
-            const { name, wordIds, terms, folderId } = action.payload || {};
+            const payload = action.payload as KnowledgePayload;
+            const { name, wordIds, terms, folderId } = payload || {};
             if (!name) {
               log.push("Skipped CREATE_WORD_GROUP: Missing group name.");
               continue;
@@ -1077,7 +1241,8 @@ export const useAgentAction = () => {
               `Created word group "${name}" with ${resolvedWordIds.length} words.`,
             );
           }
-        } catch (e: any) {
+        } catch (err: unknown) {
+          const e = err as Error;
           console.error("Agent Execution Error", e);
           log.push(`Error executing action: ${e.message}`);
         }

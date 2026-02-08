@@ -176,19 +176,19 @@ export type ToolName =
 
 export interface ToolCall {
   tool: ToolName;
-  params: Record<string, any>;
+  params: Record<string, unknown>;
 }
 
-export interface ToolResult {
+export interface ToolResult<T = unknown> {
   tool: ToolName;
   success: boolean;
-  data: any;
+  data: T;
   error?: string;
 }
 
 export interface AgentAction {
   type: ActionType;
-  payload: any; // Payload structure varies by action type
+  payload: unknown; // Payload structure varies by action type, using unknown for safety
 }
 
 // Action Journaling for Undo

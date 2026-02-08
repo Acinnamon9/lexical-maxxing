@@ -188,7 +188,8 @@ export async function POST(req: Request) {
             message: data.choices[0].message.content, // Use original content
           });
         }
-      } catch (lmError: any) {
+      } catch (err: unknown) {
+        const lmError = err as Error;
         console.error("Agent API: LM Studio request failed", lmError);
         return NextResponse.json(
           { error: `LM Studio Error: ${lmError.message}` },

@@ -49,7 +49,8 @@ export async function POST(req: Request) {
         "Content-Type": "text/plain; charset=utf-8",
       },
     });
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     console.error("Clarify API: Internal server error", error);
     return NextResponse.json(
       {

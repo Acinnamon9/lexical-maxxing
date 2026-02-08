@@ -63,8 +63,9 @@ export async function generateText(
       const data = await response.json();
       const content = data.choices[0].message.content.trim();
       return { text: content };
-    } catch (err: any) {
-      return { text: "", error: `LM Studio Error: ${err.message}` };
+    } catch (err: unknown) {
+      const e = err as Error;
+      return { text: "", error: `LM Studio Error: ${e.message}` };
     }
   }
 
@@ -87,10 +88,11 @@ export async function generateText(
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
     return { text };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const e = err as Error;
     return {
       text: "",
-      error: `Gemini Error: ${err.message || "Unknown error"}`,
+      error: `Gemini Error: ${e.message || "Unknown error"}`,
     };
   }
 }
@@ -197,8 +199,9 @@ export async function streamText(
               }
             }
           }
-        } catch (err: any) {
-          controller.error(err);
+        } catch (err: unknown) {
+          const e = err as Error;
+          controller.error(e);
         } finally {
           controller.close();
         }

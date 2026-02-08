@@ -131,10 +131,11 @@ export function DoubtSection({
         response: streamedResponse,
         updatedAt: Date.now(),
       });
-    } catch (err: any) {
-      console.error("AI Request Failed", err);
+    } catch (err: unknown) {
+      const e = err as Error;
+      console.error("AI Request Failed", e);
       await db.doubts.update(doubtId, {
-        response: `Error: ${err.message || "Failed to connect to AI"}`,
+        response: `Error: ${e.message || "Failed to connect to AI"}`,
         status: "resolved",
         updatedAt: Date.now(),
       });

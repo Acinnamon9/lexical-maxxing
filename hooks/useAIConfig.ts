@@ -163,7 +163,7 @@ export function useAIConfig() {
       const data = await response.json();
       // LM Studio /v1/models returns { data: [{ id: "..." }] }
       // LM Studio /api/v1/models might return something else, but let's assume OpenAI compatibility
-      const models = data.data?.map((m: any) => m.id) || [];
+      const models = data.data?.map((m: { id: string }) => m.id) || [];
       setAvailableLmModels(models);
 
       // If current model is empty but we have models, pick the first one

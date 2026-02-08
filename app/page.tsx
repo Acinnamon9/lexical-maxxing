@@ -6,10 +6,7 @@ import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
 import ImportModal from "@/components/import/ImportModal";
 import CreateFolderModal from "@/components/folders/CreateFolderModal";
-import AuthModal from "@/components/AuthModal";
-import { User } from "@supabase/supabase-js";
 import { useSync } from "@/hooks/useSync";
-import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import {
   DndContext,
@@ -19,6 +16,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import FolderCard from "@/components/folders/FolderCard";
+import { Folder } from "@/lib/types";
 
 const container = {
   hidden: { opacity: 0 },
@@ -43,8 +41,6 @@ export default function Home() {
       .toArray(),
   );
   const [showCreate, setShowCreate] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
   const { isSyncing, triggerSync } = useSync();
   const [importTarget, setImportTarget] = useState<{
     id: string;
@@ -91,7 +87,7 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [searchQuery]);
 
-  const handleStartEdit = (folder: any) => {
+  const handleStartEdit = (folder: Folder) => {
     setEditingFolderId(folder.id);
     setEditName(folder.name);
   };
@@ -133,101 +129,35 @@ export default function Home() {
   };
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUser(data.user);
-        triggerSync();
-      }
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (session?.user) {
-          setUser(session.user);
-          triggerSync();
-        } else {
-          setUser(null);
-        }
-      },
-    );
-
-    return () => authListener.subscription.unsubscribe();
-  }, [triggerSync]);
+    // Sync triggers handled in Navbar now
+  }, []);
 
   if (!folders) return <div className="p-8">Loading...</div>;
 
   return (
     <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans">
-      <header className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <motion.div
-          initial={{ x: -20, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+      <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <h2 className="text-2xl font-bold tracking-tight">Your Dashboard</h2>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
         >
-          <h1 className="text-3xl font-bold tracking-tight">Lexical Maxxing</h1>
-          <p className="text-muted-foreground font-medium text-sm">
-            Domain-driven vocabulary builder
-          </p>
-        </motion.div>
-        <div className="flex gap-4 items-center flex-wrap">
-          {user ? (
-            <button
-              onClick={() => triggerSync()}
-              disabled={isSyncing}
-              className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
-            >
-              {isSyncing ? (
-                <>
-                  <span className="animate-spin">↻</span> Syncing...
-                </>
-              ) : (
-                <>
-                  <span>☁</span> Synced
-                </>
-              )}
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowAuth(true)}
-              className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Login / Sync
-            </button>
-          )}
-          <div className="h-4 w-px bg-border mx-1 hidden md:block" />
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            New Folder
-          </button>
-          <div className="h-4 w-px bg-border mx-1 hidden md:block" />
-          <Link
-            href="/settings"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Settings
-          </Link>
-          <Link
-            href="/debug"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Debug
-          </Link>
-        </div>
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New Folder
+        </button>
       </header>
 
       {/* Global Search Bar */}
@@ -464,15 +394,6 @@ export default function Home() {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         onSuccess={() => {}}
-      />
-
-      <AuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        onSuccess={(u) => {
-          setUser(u);
-          triggerSync();
-        }}
       />
     </div>
   );

@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAgentAction, isReadAction } from "@/hooks/useAgentAction";
-import { AgentAction, ToolResult } from "@/lib/types";
+import { AgentAction, ToolResult, ToolName } from "@/lib/types";
 
 import { useParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -14,6 +14,72 @@ import remarkGfm from "remark-gfm";
 import type { AgentMessage, AgentSession } from "@/lib/types";
 import { useAIConfig } from "@/hooks/useAIConfig";
 import { useSync } from "@/hooks/useSync";
+
+interface AIWidgetOpenEvent extends CustomEvent {
+  detail: {
+    query?: string;
+    mode?: "auto" | "ARCHITECT" | "SCHOLAR" | "NONE";
+  };
+}
+
+interface TriggerAgentQueryEvent extends CustomEvent {
+  detail: {
+    query?: string;
+    autoSend?: boolean;
+  };
+}
+
+// Payload Interfaces for casting
+interface CreateFolderPayload {
+  name: string;
+  emoji?: string;
+  color?: string;
+}
+interface AddWordPayload {
+  term: string;
+  folderName?: string;
+}
+interface DeleteItemPayload {
+  type: string;
+  id: string;
+}
+interface RenameItemPayload {
+  type: string;
+  id: string;
+  newName: string;
+}
+interface MoveItemPayload {
+  type: string;
+  id: string;
+  targetFolderId: string;
+}
+interface NavigateToPayload {
+  view: string;
+  id?: string;
+}
+interface UpdateFolderMetadataPayload {
+  id: string;
+  emoji?: string;
+  color?: string;
+}
+interface UpdateWordMetadataPayload {
+  id?: string;
+  term?: string;
+  color?: string;
+}
+interface NotePayload {
+  id?: string;
+  title?: string;
+  content?: string;
+  folderId?: string;
+  folderName?: string;
+}
+interface CreateDoubtPayload {
+  term?: string;
+  folderName?: string;
+  query: string;
+  folderId?: string;
+}
 
 // Removed local Message interface in favor of AgentMessage
 
@@ -56,8 +122,9 @@ export default function AIWidget() {
 
   // Global Open Event
   useEffect(() => {
-    const handleOpenEvent = (e: any) => {
-      const { query: incomingQuery, mode } = e.detail || {};
+    const handleOpenEvent = (e: Event) => {
+      const customEvent = e as AIWidgetOpenEvent;
+      const { query: incomingQuery, mode } = customEvent.detail || {};
       setIsOpen(true);
       if (mode) setAgentMode(mode);
       if (incomingQuery) {
@@ -229,7 +296,7 @@ export default function AIWidget() {
     query: string,
     sessionId: string,
     agentMessageId: string,
-    toolResults?: Record<string, any>,
+    toolResults?: Record<string, ToolResult>,
   ) => {
     try {
       const { geminiKey: apiKey, geminiModel: model } = config;
@@ -309,9 +376,12 @@ export default function AIWidget() {
                 const toolCalls = actions.filter((a) => a.type === "TOOL_CALL");
                 if (toolCalls.length > 0) {
                   // Execute Tools
-                  const results: Record<string, any> = {};
+                  const results: Record<string, ToolResult> = {};
                   for (const call of toolCalls) {
-                    const { tool, params } = call.payload;
+                    const { tool, params } = call.payload as {
+                      tool: ToolName;
+                      params: Record<string, unknown>;
+                    };
                     // Update UI
                     await db.agentMessages.update(agentMessageId, {
                       text: finalMessage + `\n\n*Running tool: ${tool}...*`,
@@ -348,13 +418,14 @@ export default function AIWidget() {
               } else if (data.type === "error") {
                 throw new Error(data.error || "Stream error");
               }
-            } catch (e) {
+            } catch (e: unknown) {
               console.warn("Error parsing SSE:", e);
             }
           }
         }
       }
-    } catch (e: any) {
+    } catch (err: unknown) {
+      const e = err as Error;
       // If aborted, don't log error
       if (e.name === "AbortError") return;
 
@@ -437,7 +508,8 @@ export default function AIWidget() {
         setCanUndo(true); // Enable undo for a short time
         setTimeout(() => setCanUndo(false), 30000); // Undo available for 30s
       }
-    } catch (e: any) {
+    } catch (err: unknown) {
+      const e = err as Error;
       await db.agentMessages.add({
         id: crypto.randomUUID(),
         sessionId: sessionId,
@@ -472,7 +544,8 @@ export default function AIWidget() {
         text: `↩️ ${logs.join(", ")}`,
         createdAt: Date.now(),
       });
-    } catch (e: any) {
+    } catch (err: unknown) {
+      const e = err as Error;
       await db.agentMessages.add({
         id: crypto.randomUUID(),
         sessionId: sessionId,
@@ -532,8 +605,9 @@ export default function AIWidget() {
 
   // Handle external query requests (e.g. from NoteModal Study button)
   useEffect(() => {
-    const handleTriggerQuery = (e: any) => {
-      const { query: incomingQuery, autoSend } = e.detail || {};
+    const handleTriggerQuery = (e: Event) => {
+      const customEvent = e as TriggerAgentQueryEvent;
+      const { query: incomingQuery, autoSend } = customEvent.detail || {};
       if (incomingQuery) {
         setIsOpen(true);
         setQuery(incomingQuery);
@@ -747,7 +821,7 @@ export default function AIWidget() {
                       }`}
                     >
                       <div
-                        className={`max-w-[85%] rounded-lg p-3 text-sm relative ${
+                        className={`max-w-[85%] rounded-lg p-3 text-sm relative selection:bg-indigo-500/30 selection:text-current ${
                           m.role === "user"
                             ? "bg-foreground text-background"
                             : m.role === "system"
@@ -848,29 +922,29 @@ export default function AIWidget() {
                         {pendingActions.map((action, i) => (
                           <li key={i}>
                             {action.type === "CREATE_FOLDER" &&
-                              `Create folder "${action.payload?.name || "unnamed"}"`}
+                              `Create folder "${(action.payload as CreateFolderPayload)?.name || "unnamed"}"`}
                             {action.type === "ADD_WORD" &&
-                              `Add "${action.payload?.term || "unknown term"}" to ${action.payload?.folderName || "current folder"}`}
+                              `Add "${(action.payload as AddWordPayload)?.term || "unknown term"}" to ${(action.payload as AddWordPayload)?.folderName || "current folder"}`}
                             {action.type === "DELETE_ITEM" &&
-                              `Delete ${action.payload?.type} (ID: ${action.payload?.id})`}
+                              `Delete ${(action.payload as DeleteItemPayload)?.type} (ID: ${(action.payload as DeleteItemPayload)?.id})`}
                             {action.type === "RENAME_ITEM" &&
-                              `Rename ${action.payload?.type} to "${action.payload?.newName}"`}
+                              `Rename ${(action.payload as RenameItemPayload)?.type} to "${(action.payload as RenameItemPayload)?.newName}"`}
                             {action.type === "MOVE_ITEM" &&
-                              `Move ${action.payload?.type} to folder ${action.payload?.targetFolderId}`}
+                              `Move ${(action.payload as MoveItemPayload)?.type} to folder ${(action.payload as MoveItemPayload)?.targetFolderId}`}
                             {action.type === "NAVIGATE_TO" &&
-                              `Navigate to ${action.payload?.view}`}
+                              `Navigate to ${(action.payload as NavigateToPayload)?.view}`}
                             {action.type === "UPDATE_FOLDER_METADATA" &&
-                              `Update folder ${action.payload?.id} aesthetics`}
+                              `Update folder ${(action.payload as UpdateFolderMetadataPayload)?.id} aesthetics`}
                             {action.type === "UPDATE_WORD_METADATA" &&
-                              `Color word "${action.payload?.term || action.payload?.id}"`}
+                              `Color word "${(action.payload as UpdateWordMetadataPayload)?.term || (action.payload as UpdateWordMetadataPayload)?.id}"`}
                             {action.type === "CREATE_NOTE" &&
-                              `Create note "${action.payload?.title}"`}
+                              `Create note "${(action.payload as NotePayload)?.title}"`}
                             {action.type === "UPDATE_NOTE" &&
-                              `Update note "${action.payload?.id}"`}
+                              `Update note "${(action.payload as NotePayload)?.id}"`}
                             {action.type === "DELETE_NOTE" &&
-                              `Delete note "${action.payload?.id}"`}
+                              `Delete note "${(action.payload as NotePayload)?.id}"`}
                             {action.type === "CREATE_DOUBT" &&
-                              `Ask about "${action.payload?.term || action.payload?.query}"`}
+                              `Ask about "${(action.payload as CreateDoubtPayload)?.term || (action.payload as CreateDoubtPayload)?.query}"`}
                           </li>
                         ))}
                       </ul>

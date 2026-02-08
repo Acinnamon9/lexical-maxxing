@@ -1,4 +1,4 @@
-import { Table } from "dexie";
+import { Table, IndexableType } from "dexie";
 import { db } from "./db";
 import { supabase } from "./supabase";
 import {
@@ -11,20 +11,29 @@ import {
   Note,
 } from "./types";
 
+type SyncItem =
+  | Folder
+  | Word
+  | WordFolder
+  | AgentSession
+  | AgentMessage
+  | UserSetting
+  | Note;
+
 export async function syncData(userId: string) {
   console.log("Starting sync for user:", userId);
 
   try {
     // 1. Folders
-    await syncTable<Folder>("folders", db.folders, userId, "folders");
+    await syncTable("folders", db.folders, userId, "folders");
 
     // 2. Words
-    await syncTable<Word>("words", db.words, userId, "words");
+    await syncTable("words", db.words, userId, "words");
 
     // 3. WordFolders (Composite Key)
     // Special handling might be needed for composite keys if using Upsert
     // But Supabase upsert works with composite primary keys if defined in DB
-    await syncTable<WordFolder>(
+    await syncTable(
       "wordFolders",
       db.wordFolders,
       userId,
@@ -33,7 +42,7 @@ export async function syncData(userId: string) {
     );
 
     // 4. Agent Sessions
-    await syncTable<AgentSession>(
+    await syncTable(
       "agentSessions",
       db.agentSessions,
       userId,
@@ -41,7 +50,7 @@ export async function syncData(userId: string) {
     );
 
     // 5. Agent Messages
-    await syncTable<AgentMessage>(
+    await syncTable(
       "agentMessages",
       db.agentMessages,
       userId,
@@ -49,15 +58,10 @@ export async function syncData(userId: string) {
     );
 
     // 6. User Settings
-    await syncTable<UserSetting>(
-      "userSettings",
-      db.userSettings,
-      userId,
-      "user_settings",
-    );
+    await syncTable("userSettings", db.userSettings, userId, "user_settings");
 
     // 7. Notes
-    await syncTable<Note>("notes", db.notes, userId, "notes");
+    await syncTable("notes", db.notes, userId, "notes");
 
     console.log("Sync complete!");
     return true;
@@ -67,9 +71,9 @@ export async function syncData(userId: string) {
   }
 }
 
-async function syncTable<T extends { id?: string } | object>(
+async function syncTable<T extends SyncItem, K extends IndexableType>(
   dexieTableName: string,
-  dexieTable: Table<T, any>,
+  dexieTable: Table<T, K>,
   userId: string,
   supabaseTableName: string,
   isComposite = false,
@@ -78,11 +82,7 @@ async function syncTable<T extends { id?: string } | object>(
   const localData = await dexieTable.toArray();
   if (localData.length > 0) {
     const recordsToPush = localData.map((item: T) => {
-      // Map camelCase to snake_case if needed, or just ensure DB columns match
-      // Ideally, we keep them same or map them.
-      // For this MVP, let's assume we map keys manually or use a transformer if needed.
-      // But our Supabase schema uses snake_case for FKs (user_id, parent_id).
-      // Let's do a quick transformation.
+      // Map camelCase to snake_case if needed
       return transformToSupabase(item, userId, supabaseTableName);
     });
 
@@ -113,127 +113,138 @@ async function syncTable<T extends { id?: string } | object>(
   }
 
   if (remoteData && remoteData.length > 0) {
-    const recordsToPull = remoteData.map((item: any) =>
-      transformFromSupabase(item, dexieTableName),
+    const recordsToPull = remoteData.map((item) =>
+      transformFromSupabase(item as Record<string, unknown>, dexieTableName),
     ) as T[];
     await dexieTable.bulkPut(recordsToPull);
   }
 }
 
-function transformToSupabase(item: any, userId: string, tableName: string) {
-  const base = { ...item, user_id: userId };
-
+function transformToSupabase(
+  item: SyncItem,
+  userId: string,
+  tableName: string,
+) {
   // Map specific fields based on table
   if (tableName === "folders") {
+    const folder = item as Folder;
     return {
-      id: item.id,
+      id: folder.id,
       user_id: userId,
-      name: item.name,
-      parent_id: item.parentId || null, // Camel to Snake
-      updated_at: item.updatedAt
-        ? new Date(item.updatedAt).toISOString()
+      name: folder.name,
+      parent_id: folder.parentId || null, // Camel to Snake
+      updated_at: folder.updatedAt
+        ? new Date(folder.updatedAt).toISOString()
         : new Date().toISOString(),
     };
   }
   if (tableName === "notes") {
+    const note = item as Note;
     return {
-      id: item.id,
-      folder_id: item.folderId,
+      id: note.id,
+      folder_id: note.folderId,
       user_id: userId,
-      title: item.title,
-      content: item.content,
-      created_at: new Date(item.createdAt).toISOString(),
-      updated_at: new Date(item.updatedAt).toISOString(),
+      title: note.title,
+      content: note.content,
+      created_at: new Date(note.createdAt).toISOString(),
+      updated_at: new Date(note.updatedAt).toISOString(),
     };
   }
   if (tableName === "word_folders") {
+    const wf = item as WordFolder;
     return {
-      word_id: item.wordId,
-      folder_id: item.folderId,
+      word_id: wf.wordId,
+      folder_id: wf.folderId,
       user_id: userId,
     };
   }
   if (tableName === "agent_sessions") {
+    const session = item as AgentSession;
     return {
-      id: item.id,
+      id: session.id,
       user_id: userId,
-      title: item.title,
-      created_at: new Date(item.createdAt).toISOString(),
-      updated_at: new Date(item.updatedAt).toISOString(),
+      title: session.title,
+      created_at: new Date(session.createdAt).toISOString(),
+      updated_at: new Date(session.updatedAt).toISOString(),
     };
   }
   if (tableName === "agent_messages") {
+    const msg = item as AgentMessage;
     return {
-      id: item.id,
+      id: msg.id,
       user_id: userId,
-      session_id: item.sessionId,
-      role: item.role,
-      text: item.text,
-      created_at: new Date(item.createdAt).toISOString(),
+      session_id: msg.sessionId,
+      role: msg.role,
+      text: msg.text,
+      created_at: new Date(msg.createdAt).toISOString(),
     };
   }
   if (tableName === "user_settings") {
+    const setting = item as UserSetting;
     return {
-      id: item.id,
+      id: setting.id,
       user_id: userId,
-      value: item.value,
-      updated_at: new Date(item.updatedAt).toISOString(),
+      value: setting.value,
+      updated_at: new Date(setting.updatedAt).toISOString(),
     };
   }
   // Default for Words (no special mapping needed if keys match, but created_at?)
-  return base;
+  return { ...item, user_id: userId };
 }
 
-function transformFromSupabase(item: any, tableName: string) {
+function transformFromSupabase(
+  item: Record<string, unknown>,
+  tableName: string,
+) {
   // Map snake_case back to camelCase
   if (tableName === "folders") {
     return {
-      id: item.id,
-      name: item.name,
-      parentId: item.parent_id,
+      id: item.id as string,
+      name: item.name as string,
+      parentId: (item.parent_id as string) || null,
       updatedAt: item.updated_at
-        ? new Date(item.updated_at).getTime()
+        ? new Date(item.updated_at as string).getTime()
         : Date.now(),
     };
   }
   if (tableName === "notes") {
     return {
-      id: item.id,
-      folderId: item.folder_id,
-      title: item.title,
-      content: item.content,
-      createdAt: new Date(item.created_at).getTime(),
-      updatedAt: new Date(item.updated_at).getTime(),
+      id: item.id as string,
+      folderId: item.folder_id as string,
+      title: item.title as string,
+      content: item.content as string,
+      createdAt: new Date(item.created_at as string).getTime(),
+      updatedAt: new Date(item.updated_at as string).getTime(),
     };
   }
   if (tableName === "wordFolders") {
     return {
-      wordId: item.word_id,
-      folderId: item.folder_id,
+      wordId: item.word_id as string,
+      folderId: item.folder_id as string,
     };
   }
   if (tableName === "agentSessions") {
     return {
-      id: item.id,
-      title: item.title,
-      createdAt: new Date(item.created_at).getTime(),
-      updatedAt: new Date(item.updated_at).getTime(),
+      id: item.id as string,
+      title: item.title as string,
+      createdAt: new Date(item.created_at as string).getTime(),
+      updatedAt: new Date(item.updated_at as string).getTime(),
     };
   }
   if (tableName === "agentMessages") {
     return {
-      id: item.id,
-      sessionId: item.session_id,
-      role: item.role,
-      text: item.text,
-      createdAt: new Date(item.created_at).getTime(),
+      id: item.id as string,
+      sessionId: item.session_id as string,
+      role: item.role as "user" | "agent" | "system",
+      text: item.text as string,
+      createdAt: new Date(item.created_at as string).getTime(),
     };
   }
   if (tableName === "userSettings") {
     return {
-      id: item.id,
-      value: item.value,
-      updatedAt: new Date(item.updated_at).getTime(),
+      id: item.id as string,
+      value: item.value as string,
+      updatedAt: new Date(item.updated_at as string).getTime(),
     };
   }
   // Default

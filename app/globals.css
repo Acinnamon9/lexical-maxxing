@@ -66,7 +66,7 @@
   --accent: #eee8d5;
   --accent-foreground: #073642;
   --border: #d5cfba;
-  --selection: #eee8d5;
+  --selection: rgba(147, 161, 161, 0.4);
 }
 
 * {

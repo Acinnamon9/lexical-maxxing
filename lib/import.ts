@@ -7,10 +7,20 @@ import {
   WordFolder,
 } from "./types";
 
+export interface ImportStats {
+  wordsCreated?: number;
+  wordsResolved?: number;
+  meaningsCreated?: number;
+  linksCreated?: number;
+  wordsSkipped?: number;
+  foldersCreated?: number;
+  notesCreated?: number;
+}
+
 export async function importJson(
   folderId: string,
   jsonString: string,
-): Promise<{ success: boolean; message: string; stats?: any }> {
+): Promise<{ success: boolean; message: string; stats?: ImportStats }> {
   let data: ImportFormat;
 
   try {
@@ -98,16 +108,26 @@ export async function importJson(
     );
 
     return { success: true, message: "Import successful", stats };
-  } catch (err: any) {
-    console.error("Import Error:", err);
-    return { success: false, message: `DB Transaction Failed: ${err.message}` };
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("Import Error:", error);
+    return {
+      success: false,
+      message: `DB Transaction Failed: ${error.message}`,
+    };
   }
+}
+
+export interface MeaningImportItem {
+  term: string;
+  folderId: string;
+  meanings: string[];
 }
 
 export async function bulkImportMeanings(
   jsonString: string,
-): Promise<{ success: boolean; message: string; stats?: any }> {
-  let data: any[];
+): Promise<{ success: boolean; message: string; stats?: ImportStats }> {
+  let data: MeaningImportItem[];
 
   try {
     data = JSON.parse(jsonString);
@@ -177,8 +197,117 @@ export async function bulkImportMeanings(
     );
 
     return { success: true, message: `Bulk import complete.`, stats };
-  } catch (err: any) {
-    console.error("Bulk Import Error:", err);
-    return { success: false, message: `DB Failed: ${err.message}` };
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("Bulk Import Error:", error);
+    return { success: false, message: `DB Failed: ${error.message}` };
+  }
+}
+
+export interface FolderImportItem {
+  name: string;
+  parentId?: string;
+  emoji?: string;
+  color?: string;
+}
+
+export async function importFolders(
+  jsonString: string,
+): Promise<{ success: boolean; message: string; stats?: ImportStats }> {
+  let data: FolderImportItem[];
+
+  try {
+    data = JSON.parse(jsonString);
+  } catch (e) {
+    return { success: false, message: "Invalid JSON format" };
+  }
+
+  if (!Array.isArray(data)) {
+    return {
+      success: false,
+      message: "JSON must be an array of folder objects",
+    };
+  }
+
+  const stats = { foldersCreated: 0 };
+  const now = Date.now();
+
+  try {
+    await db.transaction("rw", db.folders, async () => {
+      for (const item of data) {
+        if (!item.name) continue;
+        await db.folders.add({
+          id: crypto.randomUUID(),
+          name: item.name,
+          parentId: item.parentId || null,
+          emoji: item.emoji,
+          color: item.color,
+          updatedAt: now,
+        });
+        stats.foldersCreated++;
+      }
+    });
+
+    return {
+      success: true,
+      message: `Imported ${stats.foldersCreated} folders.`,
+      stats,
+    };
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("Folder Import Error:", error);
+    return { success: false, message: `DB Failed: ${error.message}` };
+  }
+}
+
+export interface NoteImportItem {
+  title: string;
+  content: string;
+}
+
+export async function importNotes(
+  folderId: string,
+  jsonString: string,
+): Promise<{ success: boolean; message: string; stats?: ImportStats }> {
+  let data: NoteImportItem[];
+
+  try {
+    data = JSON.parse(jsonString);
+  } catch (e) {
+    return { success: false, message: "Invalid JSON format" };
+  }
+
+  if (!Array.isArray(data)) {
+    return { success: false, message: "JSON must be an array of note objects" };
+  }
+
+  const stats = { notesCreated: 0 };
+  const now = Date.now();
+
+  try {
+    await db.transaction("rw", db.notes, async () => {
+      for (const item of data) {
+        if (!item.title || !item.content) continue;
+        await db.notes.add({
+          id: crypto.randomUUID(),
+          folderId,
+          title: item.title,
+          content: item.content,
+          createdAt: now,
+          updatedAt: now,
+        });
+        stats.notesCreated++;
+      }
+    });
+
+    return {
+      success: true,
+      message: `Imported ${stats.notesCreated} notes.`,
+      stats,
+    };
+  } catch (err: unknown) {
+    const error = err as Error;
+    console.error("Note Import Error:", error);
+    return { success: false, message: `DB Failed: ${error.message}` };
   }
 }

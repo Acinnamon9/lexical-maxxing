@@ -1,23 +1,73 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { bulkImportMeanings } from "@/lib/import";
+import { bulkImportMeanings, importFolders, importNotes } from "@/lib/import";
 import { motion, AnimatePresence } from "framer-motion";
+
+export type ImportMode = "meanings" | "folders" | "notes";
 
 interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  mode?: ImportMode;
+  targetId?: string; // folderId for notes
 }
 
 export default function BulkImportModal({
   isOpen,
   onClose,
   onSuccess,
+  mode = "meanings",
+  targetId,
 }: BulkImportModalProps) {
   const [jsonText, setJsonText] = useState("");
   const [importing, setImporting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Configuration based on mode
+  const config = {
+    meanings: {
+      title: "Bulk Meaning Import",
+      placeholder: "Paste your JSON bulk meanings here...",
+      buttonLabel: "Import Meanings",
+      template: [
+        {
+          term: "Draft",
+          folderId: "uuid-here",
+          meanings: ["meaning 1", "meaning 2"],
+        },
+      ],
+      description:
+        "This matches the format of 'Meaningless Words' export. Just add a 'meanings' array.",
+    },
+    folders: {
+      title: "Import Folders",
+      placeholder: "Paste folder JSON here...",
+      buttonLabel: "Import Folders",
+      template: [
+        {
+          name: "Academic",
+          emoji: "📚",
+          color: "#4F46E5",
+        },
+      ],
+      description:
+        "Create multiple folders at once. 'emoji' and 'color' are optional.",
+    },
+    notes: {
+      title: "Import Notes",
+      placeholder: "Paste note JSON here...",
+      buttonLabel: "Import Notes",
+      template: [
+        {
+          title: "Session 1 Review",
+          content: "# Key Takeaways\n- Content here in markdown",
+        },
+      ],
+      description: "Notes will be added to the current folder.",
+    },
+  }[mode];
 
   // Handle Escape Key
   useEffect(() => {
@@ -38,21 +88,29 @@ export default function BulkImportModal({
     setMessage(null);
 
     try {
-      const result = await bulkImportMeanings(jsonText);
+      let result;
+      if (mode === "meanings") {
+        result = await bulkImportMeanings(jsonText);
+      } else if (mode === "folders") {
+        result = await importFolders(jsonText);
+      } else if (mode === "notes") {
+        if (!targetId) throw new Error("Folder targetId is required for notes");
+        result = await importNotes(targetId, jsonText);
+      }
 
-      if (result.success) {
-        setMessage(
-          `Success! Added ${result.stats?.meaningsCreated} meanings. Skipped ${result.stats?.wordsSkipped} entries.`,
-        );
+      if (result?.success) {
+        setMessage(result.message);
         setTimeout(() => {
           onSuccess();
           onClose();
+          setJsonText("");
+          setMessage(null);
         }, 2000);
       } else {
-        setMessage(`Error: ${result.message}`);
+        setMessage(`Error: ${result?.message || "Unknown error"}`);
       }
-    } catch {
-      setMessage("Failed to process data");
+    } catch (err: any) {
+      setMessage(`Failed: ${err.message}`);
     } finally {
       setImporting(false);
     }
@@ -78,11 +136,12 @@ export default function BulkImportModal({
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold tracking-tight">
-                Bulk Meaning Import
+                {config.title}
               </h2>
               <button
                 onClick={onClose}
                 className="text-muted-foreground hover:text-foreground transition-colors"
+                disabled={importing}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -109,18 +168,9 @@ export default function BulkImportModal({
                   </span>
                   <button
                     onClick={() => {
-                      const skeleton = JSON.stringify(
-                        [
-                          {
-                            term: "Draft",
-                            folderId: "uuid-here",
-                            meanings: ["meaning 1", "meaning 2"],
-                          },
-                        ],
-                        null,
-                        2,
+                      navigator.clipboard.writeText(
+                        JSON.stringify(config.template, null, 2),
                       );
-                      navigator.clipboard.writeText(skeleton);
                     }}
                     className="text-[10px] bg-muted px-3 py-1 rounded-md hover:bg-accent transition-colors font-semibold"
                   >
@@ -128,22 +178,15 @@ export default function BulkImportModal({
                   </button>
                 </div>
                 <pre className="text-[11px] font-mono text-muted-foreground">
-                  {`[
-  {
-    "term": "Draft",
-    "folderId": "uuid-here",
-    "meanings": ["meaning 1", "meaning 2"]
-  }
-]`}
+                  {JSON.stringify(config.template, null, 2)}
                 </pre>
               </div>
               <p className="text-xs text-muted-foreground">
-                This matches the format of &quot;Meaningless Words&quot; export.
-                Just add a <code>&quot;meanings&quot;</code> array to the items.
+                {config.description}
               </p>
               <textarea
                 className="flex-1 w-full p-4 font-mono text-xs bg-muted/20 border border-border rounded-xl resize-none focus:ring-2 ring-blue-500/50 focus:outline-none min-h-[150px] transition-all"
-                placeholder="Paste your JSON bulk meanings here..."
+                placeholder={config.placeholder}
                 value={jsonText}
                 onChange={(e) => setJsonText(e.target.value)}
               />
@@ -153,7 +196,7 @@ export default function BulkImportModal({
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`text-sm mt-4 p-3 rounded-lg font-medium ${message.includes("Error") ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}`}
+                className={`text-sm mt-4 p-3 rounded-lg font-medium ${message.includes("Error") || message.includes("Failed") ? "bg-red-500/10 text-red-500" : "bg-green-500/10 text-green-500"}`}
               >
                 {message}
               </motion.div>
@@ -172,7 +215,7 @@ export default function BulkImportModal({
                 disabled={!jsonText.trim() || importing}
                 className="px-6 py-2.5 bg-foreground text-background font-bold text-sm rounded-xl hover:opacity-90 disabled:opacity-30 transition-all shadow-lg active:scale-95"
               >
-                {importing ? "Processing..." : "Import Meanings"}
+                {importing ? "Processing..." : config.buttonLabel}
               </button>
             </div>
           </motion.div>
