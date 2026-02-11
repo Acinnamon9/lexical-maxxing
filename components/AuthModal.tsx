@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { User } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
+  onSuccess: (user: User) => void;
 }
 
 export default function AuthModal({
@@ -43,8 +44,9 @@ export default function AuthModal({
         if (data.user) onSuccess(data.user);
       }
       onClose();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message);
     } finally {
       setLoading(false);
     }
@@ -61,8 +63,9 @@ export default function AuthModal({
         },
       });
       if (error) throw error;
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setError(e.message);
       setLoading(false);
     }
   };

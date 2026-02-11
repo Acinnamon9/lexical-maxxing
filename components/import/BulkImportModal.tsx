@@ -109,8 +109,9 @@ export default function BulkImportModal({
       } else {
         setMessage(`Error: ${result?.message || "Unknown error"}`);
       }
-    } catch (err: any) {
-      setMessage(`Failed: ${err.message}`);
+    } catch (err: unknown) {
+      const e = err as Error;
+      setMessage(`Failed: ${e.message}`);
     } finally {
       setImporting(false);
     }

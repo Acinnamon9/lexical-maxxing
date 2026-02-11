@@ -336,7 +336,12 @@ export default function NoteModal({
                             className,
                             children,
                             ...props
-                          }: any) => {
+                          }: {
+                            node?: any;
+                            inline?: boolean;
+                            className?: string;
+                            children?: React.ReactNode;
+                          }) => {
                             return inline ? (
                               <code
                                 className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-indigo-500"
