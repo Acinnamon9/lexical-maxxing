@@ -202,12 +202,11 @@ Dark Mode Themes
 Multiple color schemes
 Custom theme builder
 Syntax highlighting for code words
-🚀 Recommended Implementation Order
-Phase 1: Quick Wins (1-2 weeks each)
-
-Flashcard mode
-Command palette
-Better analytics dashboard
+### Phase 1: Quick Wins (1-2 weeks each)
+- **Terminal Refinement**: See [terminal_roadmap.md](./terminal_roadmap.md) for Tier 1 features.
+- **Flashcard mode**
+- **Command palette**
+- **Better analytics dashboard**
 Phase 2: AI Enhancement (2-4 weeks each)
 
 Semantic search with embeddings
