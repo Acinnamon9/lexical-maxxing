@@ -1,223 +1,116 @@
 # Lexical Maxxing 📚
 
-An intelligent vocabulary learning application that combines hierarchical organization, AI-powered assistance, and spaced repetition to help you master new words and concepts.
+> **"Mastering vocabulary with terminal precision and AI intelligence."**
 
-## 🌟 Features
+Lexical Maxxing is an ultra-premium, local-first knowledge management system designed for power users who want to master new words and concepts with surgical precision. It combines a high-bandwidth **Terminal Interface** with a dual-mode **AI Agent** and **Spaced Repetition** to create the ultimate learning environment.
 
-### 📂 Hierarchical Organization
-- **Nested Folder System**: Organize words into folders and subfolders with drag-and-drop support
-- **Visual Customization**: Add emojis and colors to folders and words for better visual organization
-- **Flexible Structure**: Move words and folders freely to match your learning taxonomy
+## 🚀 The Vision
 
-### 🤖 AI-Powered Learning Assistant
-- **Dual-Mode AI Agent**:
-  - **ARCHITECT Mode**: Performs actions like creating folders, adding words, organizing content
-  - **SCHOLAR Mode**: Provides explanations, definitions, and learning guidance
-- **Contextual Awareness**: AI understands your current folder and visible words
-- **Tool Execution**: AI can directly manipulate your vocabulary database
-- **Multi-Turn Conversations**: Maintains context across interactions
+Traditional vocabulary apps are too slow. Lexical Maxxing treats your knowledge base like a filesystem. By providing a command-line interface (`lex-sh`) alongside a powerful AI Architect, we enable a high-bandwidth flow between thought and execution. "Smart prompts require smart minds"—the terminal is the bridge for critical thinkers to manipulate their learning environment with absolute control.
 
-### 📝 Rich Word Management
-- **Contextual Meanings**: Define words differently based on the folder/context
-- **Mastery Tracking**: 0-5 scale for recognition and recall scores
-- **AI Clarification**: Ask questions about specific words and get instant AI explanations
-- **Color Coding**: Visual indicators for word difficulty and mastery level
-- **Bulk Operations**: Import/export words and meanings in JSON format
+---
 
-### 📖 Notes & Documentation
-- **Markdown Support**: Write notes with full markdown formatting
-- **Folder-Specific Notes**: Attach notes to specific learning contexts
-- **AI Study Mode**: Generate study points and vocabulary from your notes
-- **Preview Mode**: Live markdown preview while writing
+## 🏗️ Core Pillars
 
-### 🔄 Sync & Offline-First
-- **Local-First Architecture**: All data stored in IndexedDB (Dexie.js)
-- **Supabase Sync**: Optional cloud synchronization across devices
-- **Offline Capable**: Full functionality without internet connection
-- **Conflict Resolution**: Smart merging of local and remote changes
+### 🐚 Lexical Shell (`lex-sh`)
 
-### 🎯 Spaced Repetition & Review
-- **Review Sessions**: Create focused review sessions for specific folders
-- **Multiple Modes**: Random, spaced repetition, or weak-first review
-- **Progress Tracking**: Monitor your learning progress over time
-- **Adaptive Scheduling**: Words are scheduled based on mastery level
+The heart of the application. A custom-built terminal interface accessible via `Ctrl + \`` that gives you raw power over your data.
 
-### 🔗 Knowledge Graph
-- **Word Relationships**: Link words as synonyms, antonyms, or related terms
-- **Word Groups**: Create thematic groups of related vocabulary
-- **Visual Connections**: Build a network of interconnected knowledge
+- **Precision Control**: `mkdir`, `cd`, `ls`, `mv`, and `rm` for your vocabulary hierarchy.
+- **Rich Output**: Columnated word lists, ASCII charts for mastery tracking, and theme-aware formatting.
+- **Persistent History**: Command history that survives sessions, stored locally in IndexedDB.
+- **Context Awareness**: The terminal understands your current "working folder" and adapts commands accordingly.
 
-## 🚀 Getting Started
+### 🤖 Dual-Mode AI Agent
 
-### Prerequisites
-- Node.js 20+ 
-- npm, yarn, pnpm, or bun
+A sophisticated AI sidekick that lives in your UI (`Cmd + J`) and understands your entire workspace.
 
-### Installation
+- **ARCHITECT Mode**: The "Builder". It can create folders, add words in bulk, reorganize your hierarchy, and execute complex structural changes based on natural language.
+- **SCHOLAR Mode**: The "Teacher". It provides deep etymologies, example sentences, and clarifies complex concepts in your notes.
+- **Contextual Intelligence**: The AI knows which words you're looking at and which folder you're in, providing zero-shot relevant assistance.
+- **Tool Execution**: Directly manipulates the database through a secure action-schema system.
+
+### 🏠 Local-First & Sync
+
+Your data belongs to you. Lexical Maxxing is built on a "local-first" philosophy.
+
+- **IndexedDB (Dexie.js)**: Everything is stored in your browser for sub-millisecond latency and offline perfection.
+- **Supabase Sync**: Optional, real-time cloud synchronization to keep your devices in harmony.
+- **Conflict Resolution**: Advanced merging strategies for offline edits.
+
+### 🎯 Mastery & Spaced Repetition
+
+Not just a dictionary, but a learning engine.
+
+- **0-5 Mastery Scale**: Separate tracking for recognition and recall.
+- **Adaptive Scheduling**: Spaced repetition intervals calculated to minimize review time while maximizing retention.
+- **Knowledge Graph**: Link words as synonyms, antonyms, or related concepts to build a non-linear network of knowledge.
+
+---
+
+## 🛠️ Tech Stack
+
+- **Framework**: [Next.js 16 (App Router)](https://nextjs.org/)
+- **Styling**: [Tailwind CSS 4](https://tailwindcss.com/)
+- **Database**: [Dexie.js](https://dexie.org/) (IndexedDB)
+- **AI**: [Google Gemini 2.0](https://ai.google.dev/) / [LM Studio](https://lmstudio.ai/)
+- **Runtime**: TypeScript
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **Drag & Drop**: [@dnd-kit](https://dndkit.com/)
+
+---
+
+## 📂 Project Structure
+
+```text
+lexical-maxxing/
+├── app/                  # Next.js App Router (Pages & API Routes)
+├── components/           # React Components
+│   ├── folders/          # Folder management UI
+│   ├── terminal/         # The lex-sh interface components
+│   ├── word/             # Word & meaning displays
+│   ├── notes/            # Markdown note editors
+│   └── settings/         # Advanced configuration panels
+├── hooks/                # Core logic (useTerminal, useAgentAction, useSync)
+├── lib/                  # Backend-lite logic
+│   ├── ai/               # Agent prompts, tool definitions, & emitters
+│   ├── terminal/         # lex-sh command registry & parser
+│   ├── db.ts             # Dexie schema & seeding logic
+│   └── types.ts          # Centralized Type declarations
+└── docs/                 # Roadmaps & Feature specs
+```
+
+---
+
+## 🚦 Getting Started
+
+### 1. Installation
 
 ```bash
-# Clone the repository
-git clone <your-repo-url>
+git clone https://github.com/Acinnamon9/lexical-maxxing.git
 cd lexical-maxxing
-
-# Install dependencies
 npm install
+```
 
-# Set up environment variables
+### 2. Configuration
+
+Copy the example environment file and add your API keys.
+
+```bash
 cp .env.local.example .env.local
-# Edit .env.local with your API keys
 ```
 
-### Environment Variables
+Required: `GEMINI_API_KEY` for AI features.
 
-Create a `.env.local` file with:
-
-```env
-# Gemini AI (required for AI features)
-GEMINI_API_KEY=your_gemini_api_key
-
-# Supabase (optional, for sync)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-
-# NextAuth (optional, for authentication)
-NEXTAUTH_SECRET=your_nextauth_secret
-NEXTAUTH_URL=http://localhost:3000
-```
-
-### Development
+### 3. Launch
 
 ```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the application.
+Navigate to `http://localhost:3000`. Use `Ctrl + \`` to open the Terminal or `Cmd + J` for the AI Widget.
 
-### Build for Production
-
-```bash
-npm run build
-npm start
-```
-
-## 🏗️ Architecture
-
-### Tech Stack
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS 4
-- **Database**: Dexie.js (IndexedDB wrapper)
-- **Sync**: Supabase
-- **AI**: Google Gemini API / LM Studio (local models)
-- **Animations**: Framer Motion
-- **Drag & Drop**: @dnd-kit
-- **Markdown**: react-markdown with remark-gfm
-
-### Project Structure
-
-```
-lexical-maxxing/
-├── app/                    # Next.js app router pages
-│   ├── api/               # API routes (agent, define, clarify)
-│   ├── folder/[id]/       # Folder detail pages
-│   └── page.tsx           # Dashboard
-├── components/            # React components
-│   ├── folders/          # Folder-related components
-│   ├── word/             # Word-related components
-│   ├── notes/            # Note components
-│   ├── import/           # Import/export modals
-│   └── settings/         # Settings panels
-├── hooks/                # Custom React hooks
-│   ├── useAgentAction.ts # AI agent action executor
-│   ├── useAIConfig.ts    # AI configuration management
-│   └── useSync.ts        # Supabase sync logic
-├── lib/                  # Core utilities
-│   ├── db.ts            # Dexie database schema
-│   ├── types.ts         # TypeScript type definitions
-│   ├── sync.ts          # Sync logic
-│   ├── import.ts        # Import/export utilities
-│   └── ai/              # AI prompts and adapters
-└── public/              # Static assets
-```
-
-## 🎨 Key Concepts
-
-### Agent Actions
-The AI can perform various actions through a structured action system:
-- **Folder Management**: CREATE_FOLDER, DELETE_FOLDER, RENAME_FOLDER, etc.
-- **Word Operations**: ADD_WORD, DELETE_WORD, UPDATE_WORD_METADATA
-- **Bulk Operations**: BULK_ADD_WORDS, BULK_UPDATE_METADATA
-- **Learning Tools**: SET_WORD_MASTERY, SCHEDULE_REVIEW
-- **Knowledge Graph**: LINK_WORDS, CREATE_WORD_GROUP
-
-### Tool System
-Read-only tools provide context to the AI:
-- `GET_FOLDER_CONTENTS`: List words in a folder
-- `GET_WORD_DETAILS`: Detailed word information
-- `SEARCH_FOLDERS`: Find folders by query
-- `GET_FOLDER_HIERARCHY`: Complete folder tree
-
-### Data Model
-- **Folders**: Hierarchical containers with optional parent relationships
-- **Words**: Unique terms that can exist in multiple folders
-- **WordMeanings**: Context-specific definitions per folder
-- **WordStates**: Mastery tracking (recognition/recall scores)
-- **Doubts**: AI-answered questions about specific words
-
-## 🔧 Configuration
-
-### AI Providers
-The app supports two AI providers:
-1. **Gemini** (Google): Cloud-based, requires API key
-2. **LM Studio**: Local models, requires running LM Studio locally
-
-Configure in Settings → AI Configuration.
-
-### Themes
-- System (auto)
-- Light
-- Dark
-- Solarized
-
-## 📊 Import/Export
-
-### Supported Formats
-
-**Words with Meanings:**
-```json
-[
-  {
-    "term": "Ephemeral",
-    "folderId": "uuid-here",
-    "meanings": ["Lasting for a very short time", "Transitory"]
-  }
-]
-```
-
-**Folders:**
-```json
-[
-  {
-    "name": "Academic Vocabulary",
-    "emoji": "📚",
-    "color": "#4F46E5"
-  }
-]
-```
-
-**Notes:**
-```json
-[
-  {
-    "title": "Chapter 1 Review",
-    "content": "# Key Points\n- Point 1\n- Point 2"
-  }
-]
-```
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+---
 
 ## 📝 License
 
@@ -225,11 +118,19 @@ This project is private and proprietary.
 
 ## 🙏 Acknowledgments
 
-- Built with [Next.js](https://nextjs.org/)
-- AI powered by [Google Gemini](https://ai.google.dev/)
-- Icons and animations by [Framer Motion](https://www.framer.com/motion/)
-- Offline database by [Dexie.js](https://dexie.org/)
+- Inspired by the need for high-bandwidth learning.
+- Built with ❤️ by the Lexical team.
 
 ---
 
-**Happy Learning! 🚀📚**
+## 🗺️ Roadmap
+
+We are currently in **Tier 1 (Generic Refinement)** with active development on **Tier 2 (Lexical Mastery)**.
+
+- [x] **Tier 1**: Lexical Shell core, terminal history, basic folder/word CRUD.
+- [x] **Tier 2**: AI Architect integration, dual-mode widget, local-first storage.
+- [ ] **Tier 3**: Advanced piping (`ls | agent`), semantic search, and collaborative sync.
+
+---
+
+**Master your language. Max your lexicon. 🚀📚**
