@@ -29,7 +29,7 @@ export default function AIConfigSection() {
         AI Configuration
       </h2>
       <div className="grid gap-2">
-        <div className="p-4 bg-muted/30 rounded-2xl border border-border space-y-6 relative">
+        <div className="card p-4 bg-muted/30 rounded-2xl border border-border space-y-6 relative">
           {loading && (
             <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 rounded-2xl flex items-center justify-center">
               <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />

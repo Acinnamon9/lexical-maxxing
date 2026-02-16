@@ -13,7 +13,7 @@ export default function AboutSection() {
       <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
         About
       </h2>
-      <div className="p-6 bg-muted/30 rounded-2xl border border-border space-y-4">
+      <div className="card p-6 bg-muted/30 rounded-2xl border border-border space-y-4">
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium">Version</span>
           <span className="text-xs font-mono text-muted-foreground bg-background px-2 py-1 rounded border border-border">
