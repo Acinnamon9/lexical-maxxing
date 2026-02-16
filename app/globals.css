@@ -292,19 +292,6 @@
   overflow: hidden;
 }
 
-/* Geometric accent patterns */
-.neubrutalist .card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100px;
-  height: 100px;
-  background: linear-gradient(135deg, var(--neo-peach) 50%, transparent 50%);
-  opacity: 0.3;
-  pointer-events: none;
-}
-
 .neubrutalist h1,
 .neubrutalist h2,
 .neubrutalist h3 {

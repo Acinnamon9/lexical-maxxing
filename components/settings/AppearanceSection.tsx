@@ -15,62 +15,33 @@ export default function AppearanceSection() {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as
-      | "system"
-      | "light"
-      | "dark"
-      | "solarized"
-      | "brutalist"
-      | "neubrutalist";
-
-    // Defer state updates to avoid synchronous render cascade warning
-    const timer = setTimeout(() => {
-      if (savedTheme) {
-        setTheme(savedTheme);
-      }
-      setMounted(true);
-    }, 0);
-
-    return () => clearTimeout(timer);
+    const savedTheme = localStorage.getItem("theme") as any;
+    if (savedTheme) {
+      setTheme(savedTheme);
+    }
+    setMounted(true);
   }, []);
 
-  const updateTheme = (
-    newTheme:
-      | "system"
-      | "light"
-      | "dark"
-      | "solarized"
-      | "brutalist"
-      | "neubrutalist",
-  ) => {
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    const root = document.documentElement;
+  useEffect(() => {
+    if (!mounted) return;
 
-    if (newTheme === "dark") {
-      root.classList.add("dark");
-      root.classList.remove("light", "solarized", "brutalist", "neubrutalist");
-    } else if (newTheme === "light") {
-      root.classList.add("light");
-      root.classList.remove("dark", "solarized", "brutalist", "neubrutalist");
-    } else if (newTheme === "solarized") {
-      root.classList.add("solarized");
-      root.classList.remove("dark", "light", "brutalist", "neubrutalist");
-    } else if (newTheme === "brutalist") {
-      root.classList.add("brutalist");
-      root.classList.remove("dark", "light", "solarized", "neubrutalist");
-    } else if (newTheme === "neubrutalist") {
-      root.classList.add("neubrutalist");
-      root.classList.remove("dark", "light", "solarized", "brutalist");
+    const root = document.documentElement;
+    const themes = ["dark", "light", "solarized", "brutalist", "neubrutalist"];
+
+    if (themes.includes(theme)) {
+      root.classList.add(theme);
+      themes.forEach((t) => {
+        if (t !== theme) root.classList.remove(t);
+      });
     } else {
-      root.classList.remove(
-        "dark",
-        "light",
-        "solarized",
-        "brutalist",
-        "neubrutalist",
-      );
+      themes.forEach((t) => root.classList.remove(t));
     }
+
+    localStorage.setItem("theme", theme);
+  }, [theme, mounted]);
+
+  const updateTheme = (newTheme: any) => {
+    setTheme(newTheme);
   };
 
   return (

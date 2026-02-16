@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   description: "Offline-first vocabulary builder",
   icons: {
     icon: "/LM_logo.png",
+    shortcut: "/LM_logo.png",
+    apple: "/LM_logo.png",
   },
 };
 
@@ -39,17 +41,15 @@ export default function RootLayout({
               try {
                 const theme = localStorage.getItem('theme') || 'system';
                 const root = document.documentElement;
-                if (theme === 'dark') {
-                  root.classList.add('dark');
-                  root.classList.remove('light', 'solarized');
-                } else if (theme === 'light') {
-                  root.classList.add('light');
-                  root.classList.remove('dark', 'solarized');
-                } else if (theme === 'solarized') {
-                  root.classList.add('solarized');
-                  root.classList.remove('dark', 'light');
+                const themes = ['dark', 'light', 'solarized', 'brutalist', 'neubrutalist'];
+                
+                if (themes.includes(theme)) {
+                  root.classList.add(theme);
+                  themes.forEach(t => {
+                    if (t !== theme) root.classList.remove(t);
+                  });
                 } else {
-                  root.classList.remove('dark', 'light', 'solarized');
+                  themes.forEach(t => root.classList.remove(t));
                 }
               } catch (e) {}
             `,
