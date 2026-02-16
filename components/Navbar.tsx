@@ -43,9 +43,11 @@ export default function Navbar() {
         <div className="flex h-16 items-center justify-between px-6 max-w-7xl mx-auto">
           {/* Logo / Branding */}
           <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:shadow-indigo-500/25 transition-all">
-              L
-            </div>
+            <img
+              src="/LM_logo.png"
+              alt="LM Logo"
+              className="w-8 h-8 rounded-xl shadow-lg group-hover:shadow-indigo-500/25 transition-all"
+            />
             <div className="flex flex-col">
               <span className="font-bold tracking-tight text-sm leading-none group-hover:text-indigo-500 transition-colors">
                 Lexical

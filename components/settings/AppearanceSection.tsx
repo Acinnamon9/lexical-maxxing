@@ -9,9 +9,9 @@ const item = {
 };
 
 export default function AppearanceSection() {
-  const [theme, setTheme] = useState<"system" | "light" | "dark" | "solarized">(
-    "system",
-  );
+  const [theme, setTheme] = useState<
+    "system" | "light" | "dark" | "solarized" | "brutalist" | "neubrutalist"
+  >("system");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -19,7 +19,9 @@ export default function AppearanceSection() {
       | "system"
       | "light"
       | "dark"
-      | "solarized";
+      | "solarized"
+      | "brutalist"
+      | "neubrutalist";
 
     // Defer state updates to avoid synchronous render cascade warning
     const timer = setTimeout(() => {
@@ -32,22 +34,42 @@ export default function AppearanceSection() {
     return () => clearTimeout(timer);
   }, []);
 
-  const updateTheme = (newTheme: "system" | "light" | "dark" | "solarized") => {
+  const updateTheme = (
+    newTheme:
+      | "system"
+      | "light"
+      | "dark"
+      | "solarized"
+      | "brutalist"
+      | "neubrutalist",
+  ) => {
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
     const root = document.documentElement;
 
     if (newTheme === "dark") {
       root.classList.add("dark");
-      root.classList.remove("light", "solarized");
+      root.classList.remove("light", "solarized", "brutalist", "neubrutalist");
     } else if (newTheme === "light") {
       root.classList.add("light");
-      root.classList.remove("dark", "solarized");
+      root.classList.remove("dark", "solarized", "brutalist", "neubrutalist");
     } else if (newTheme === "solarized") {
       root.classList.add("solarized");
-      root.classList.remove("dark", "light");
+      root.classList.remove("dark", "light", "brutalist", "neubrutalist");
+    } else if (newTheme === "brutalist") {
+      root.classList.add("brutalist");
+      root.classList.remove("dark", "light", "solarized", "neubrutalist");
+    } else if (newTheme === "neubrutalist") {
+      root.classList.add("neubrutalist");
+      root.classList.remove("dark", "light", "solarized", "brutalist");
     } else {
-      root.classList.remove("dark", "light", "solarized");
+      root.classList.remove(
+        "dark",
+        "light",
+        "solarized",
+        "brutalist",
+        "neubrutalist",
+      );
     }
   };
 
@@ -92,6 +114,18 @@ export default function AppearanceSection() {
                   className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "solarized" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Solarized
+                </button>
+                <button
+                  onClick={() => updateTheme("brutalist")}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "brutalist" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Brutalist
+                </button>
+                <button
+                  onClick={() => updateTheme("neubrutalist")}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "neubrutalist" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Neubrutalist
                 </button>
               </>
             )}

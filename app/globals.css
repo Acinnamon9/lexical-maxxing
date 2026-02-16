@@ -69,6 +69,391 @@
   --selection: rgba(147, 161, 161, 0.4);
 }
 
+.brutalist {
+  /* High contrast black and white */
+  --background: #ffffff;
+  --foreground: #000000;
+  --muted: #e5e5e5;
+  --muted-foreground: #404040;
+  --accent: #000000;
+  --accent-foreground: #ffffff;
+  --border: #000000;
+  --selection: #ffff00;
+
+  /* Brutalist-specific properties */
+  --brutalist-border-width: 3px;
+  --brutalist-shadow: 6px 6px 0 #000000;
+  --brutalist-heavy-shadow: 10px 10px 0 #000000;
+}
+
+/* Brutalist theme-specific styles */
+.brutalist * {
+  border-radius: 0 !important; /* No rounded corners */
+}
+
+.brutalist button,
+.brutalist .btn,
+.brutalist input,
+.brutalist textarea,
+.brutalist select {
+  border: var(--brutalist-border-width) solid var(--border);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: none; /* No smooth transitions */
+}
+
+.brutalist button:hover,
+.brutalist .btn:hover {
+  background: var(--foreground);
+  color: var(--background);
+  transform: translate(2px, 2px);
+  box-shadow: 4px 4px 0 var(--foreground);
+}
+
+.brutalist .card,
+.brutalist .panel,
+.brutalist .modal {
+  border: var(--brutalist-border-width) solid var(--border);
+  box-shadow: var(--brutalist-shadow);
+}
+
+.brutalist h1,
+.brutalist h2,
+.brutalist h3,
+.brutalist h4,
+.brutalist h5,
+.brutalist h6 {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.brutalist a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  font-weight: 700;
+}
+
+.brutalist a:hover {
+  background: var(--foreground);
+  color: var(--background);
+  text-decoration: none;
+}
+
+/* Heavy borders on interactive elements */
+.brutalist input:focus,
+.brutalist textarea:focus,
+.brutalist select:focus {
+  outline: var(--brutalist-border-width) solid var(--foreground);
+  outline-offset: 2px;
+}
+
+/* Grid-based layout emphasis */
+.brutalist .grid {
+  gap: var(--brutalist-border-width);
+}
+
+/* Exposed structure */
+.brutalist code {
+  font-family: "Courier New", Courier, monospace;
+  background: var(--muted);
+  border: 2px solid var(--border);
+  padding: 2px 6px;
+  font-weight: 600;
+}
+
+.brutalist pre {
+  background: var(--muted);
+  border: var(--brutalist-border-width) solid var(--border);
+  padding: 1rem;
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Tables with heavy structure */
+.brutalist table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: var(--brutalist-border-width) solid var(--border);
+}
+
+.brutalist th,
+.brutalist td {
+  border: var(--brutalist-border-width) solid var(--border);
+  padding: 0.5rem;
+  font-weight: 600;
+}
+
+.brutalist th {
+  background: var(--foreground);
+  color: var(--background);
+  text-transform: uppercase;
+  font-weight: 900;
+}
+
+.neubrutalist {
+  /* Cyber/Solar palette */
+  --background: #fdf6e3; /* Solar Light */
+  --foreground: #000000; /* Pure Ink */
+  --muted: #eee8d5;
+  --muted-foreground: #586e75;
+  --accent: #ffeb3b; /* Cyber Yellow */
+  --accent-foreground: #000000;
+  --border: #000000; /* Pure Ink */
+  --selection: #ffeb3b;
+
+  /* Neubrutalist-specific colors */
+  --neo-sage: #00e5ff; /* Cyan (mapped from sage slot) */
+  --neo-peach: #f50057; /* Pink (mapped from peach slot) */
+  --neo-yellow: #ffeb3b; /* Cyber Yellow */
+  --neo-blue: #00e5ff; /* Cyan */
+  --neo-cream: #fdf6e3; /* Solar Light */
+  --neo-lavender: #d4b5d4;
+
+  /* Structure */
+  --neo-border-width: 3px;
+  --neo-shadow: 6px 6px 0 #000000; /* Hard shadow using Pure Ink */
+  --neo-light-shadow: 4px 4px 0 #000000;
+}
+
+/* Neubrutalist theme-specific styles */
+.neubrutalist {
+  background: var(--background);
+}
+
+.neubrutalist body {
+  background: var(--background);
+}
+
+.neubrutalist button,
+.neubrutalist .btn {
+  border: var(--neo-border-width) solid var(--border);
+  font-weight: 700;
+  text-transform: none; /* Less aggressive than brutalist */
+  letter-spacing: 0.025em;
+  transition: all 0.1s ease; /* Very quick transitions */
+  border-radius: 8px; /* Selective rounding */
+  box-shadow: var(--neo-light-shadow);
+}
+
+.neubrutalist button:hover,
+.neubrutalist .btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 var(--border);
+}
+
+.neubrutalist button:active,
+.neubrutalist .btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--border);
+}
+
+/* Primary buttons with pastel backgrounds */
+.neubrutalist button.primary,
+.neubrutalist .btn-primary {
+  background: var(--neo-yellow);
+  color: var(--foreground);
+}
+
+.neubrutalist button.secondary,
+.neubrutalist .btn-secondary {
+  background: var(--neo-sage);
+  color: var(--foreground);
+}
+
+.neubrutalist input,
+.neubrutalist textarea,
+.neubrutalist select {
+  border: var(--neo-border-width) solid var(--border);
+  border-radius: 6px;
+  background: var(--background);
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  box-shadow: inset 2px 2px 0 rgba(0, 0, 0, 0.1);
+}
+
+.neubrutalist input:focus,
+.neubrutalist textarea:focus,
+.neubrutalist select:focus {
+  outline: var(--neo-border-width) solid var(--neo-yellow);
+  outline-offset: 2px;
+  box-shadow: var(--neo-light-shadow);
+}
+
+.neubrutalist .card,
+.neubrutalist .panel {
+  border: var(--neo-border-width) solid var(--border);
+  box-shadow: var(--neo-shadow);
+  border-radius: 12px;
+  background: var(--background);
+  overflow: hidden;
+}
+
+/* Geometric accent patterns */
+.neubrutalist .card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, var(--neo-peach) 50%, transparent 50%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.neubrutalist h1,
+.neubrutalist h2,
+.neubrutalist h3 {
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.neubrutalist h1 {
+  font-size: 2.5rem;
+}
+
+.neubrutalist a {
+  color: var(--foreground);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--neo-yellow);
+  text-underline-offset: 3px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.neubrutalist a:hover {
+  text-decoration-color: var(--neo-peach);
+  color: var(--foreground);
+}
+
+/* Tags and badges */
+.neubrutalist .tag,
+.neubrutalist .badge {
+  border: 2px solid var(--border);
+  border-radius: 20px;
+  padding: 0.25rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  box-shadow: 2px 2px 0 var(--border);
+  display: inline-block;
+}
+
+.neubrutalist .tag.sage {
+  background: var(--neo-sage);
+}
+.neubrutalist .tag.peach {
+  background: var(--neo-peach);
+}
+.neubrutalist .tag.yellow {
+  background: var(--neo-yellow);
+}
+.neubrutalist .tag.blue {
+  background: var(--neo-blue);
+}
+.neubrutalist .tag.lavender {
+  background: var(--neo-lavender);
+}
+
+/* Code blocks with softer styling */
+.neubrutalist code {
+  font-family: "Courier New", Courier, monospace;
+  background: var(--neo-cream);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.neubrutalist pre {
+  background: var(--neo-cream);
+  border: var(--neo-border-width) solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: var(--neo-light-shadow);
+  font-family: "Courier New", Courier, monospace;
+}
+
+/* Tables with playful accents */
+.neubrutalist table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border: var(--neo-border-width) solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.neubrutalist th,
+.neubrutalist td {
+  border: 2px solid var(--border);
+  padding: 0.75rem;
+  font-weight: 500;
+}
+
+.neubrutalist th {
+  background: var(--neo-yellow);
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.neubrutalist tbody tr:nth-child(even) {
+  background: var(--neo-cream);
+}
+
+/* Separator with geometric pattern */
+.neubrutalist hr {
+  border: none;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--border) 0px,
+    var(--border) 10px,
+    transparent 10px,
+    transparent 20px
+  );
+  margin: 2rem 0;
+}
+
+/* Blockquotes with accent */
+.neubrutalist blockquote {
+  border-left: 5px solid var(--neo-sage);
+  background: var(--neo-cream);
+  padding: 1rem;
+  margin: 1rem 0;
+  border-radius: 0 8px 8px 0;
+  font-weight: 500;
+  box-shadow: var(--neo-light-shadow);
+}
+
+/* Modal/Dialog styling */
+.neubrutalist .modal,
+.neubrutalist dialog {
+  border: var(--neo-border-width) solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--neo-shadow);
+  background: var(--background);
+}
+
+/* Lists with custom markers */
+.neubrutalist ul {
+  list-style: none;
+  padding-left: 1.5rem;
+}
+
+.neubrutalist ul li::before {
+  content: "▸";
+  color: var(--neo-yellow);
+  font-weight: bold;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+}
 * {
   border-color: var(--border);
 }
@@ -87,6 +472,182 @@ body {
   font-family: var(--font-geist-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Markdown prose styles for documentation */
+.prose {
+  color: var(--foreground);
+  max-width: 65ch;
+}
+
+.prose :where(h1):not(:where([class~="not-prose"] *)) {
+  font-size: 2.25em;
+  margin-top: 0;
+  margin-bottom: 0.8888889em;
+  line-height: 1.1111111;
+  font-weight: 800;
+}
+
+.prose :where(h2):not(:where([class~="not-prose"] *)) {
+  font-size: 1.5em;
+  margin-top: 2em;
+  margin-bottom: 1em;
+  line-height: 1.3333333;
+  font-weight: 700;
+}
+
+.prose :where(h3):not(:where([class~="not-prose"] *)) {
+  font-size: 1.25em;
+  margin-top: 1.6em;
+  margin-bottom: 0.6em;
+  line-height: 1.6;
+  font-weight: 600;
+}
+
+.prose :where(h4):not(:where([class~="not-prose"] *)) {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.prose :where(a):not(:where([class~="not-prose"] *)) {
+  color: #3b82f6;
+  text-decoration: underline;
+  font-weight: 500;
+}
+
+.prose :where(a):hover:not(:where([class~="not-prose"] *)) {
+  color: #2563eb;
+}
+
+.prose :where(strong):not(:where([class~="not-prose"] *)) {
+  font-weight: 600;
+}
+
+.prose :where(code):not(:where([class~="not-prose"] *)) {
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 0.875em;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+}
+
+.dark .prose :where(code):not(:where([class~="not-prose"] *)) {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.prose :where(pre):not(:where([class~="not-prose"] *)) {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  overflow-x: auto;
+  font-size: 0.875em;
+  line-height: 1.7142857;
+  margin-top: 1.7142857em;
+  margin-bottom: 1.7142857em;
+  border-radius: 0.375rem;
+  padding: 0.8571429em 1.1428571em;
+}
+
+.prose :where(pre code):not(:where([class~="not-prose"] *)) {
+  background-color: transparent;
+  border-width: 0;
+  border-radius: 0;
+  padding: 0;
+  font-weight: inherit;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: inherit;
+}
+
+.prose :where(table):not(:where([class~="not-prose"] *)) {
+  width: 100%;
+  table-layout: auto;
+  text-align: left;
+  margin-top: 2em;
+  margin-bottom: 2em;
+  font-size: 0.875em;
+  line-height: 1.7142857;
+}
+
+.prose :where(thead):not(:where([class~="not-prose"] *)) {
+  border-bottom-width: 1px;
+  border-bottom-color: #d1d5db;
+}
+
+.dark .prose :where(thead):not(:where([class~="not-prose"] *)) {
+  border-bottom-color: #4b5563;
+}
+
+.prose :where(thead th):not(:where([class~="not-prose"] *)) {
+  font-weight: 600;
+  vertical-align: bottom;
+  padding-right: 0.5714286em;
+  padding-bottom: 0.5714286em;
+  padding-left: 0.5714286em;
+}
+
+.prose :where(tbody tr):not(:where([class~="not-prose"] *)) {
+  border-bottom-width: 1px;
+  border-bottom-color: #e5e7eb;
+}
+
+.dark .prose :where(tbody tr):not(:where([class~="not-prose"] *)) {
+  border-bottom-color: #374151;
+}
+
+.prose :where(tbody td):not(:where([class~="not-prose"] *)) {
+  vertical-align: baseline;
+  padding: 0.5714286em;
+}
+
+.prose :where(blockquote):not(:where([class~="not-prose"] *)) {
+  font-weight: 500;
+  font-style: italic;
+  color: #374151;
+  border-left-width: 0.25rem;
+  border-left-color: #e5e7eb;
+  quotes: "\201C" "\201D" "\2018" "\2019";
+  margin-top: 1.6em;
+  margin-bottom: 1.6em;
+  padding-left: 1em;
+}
+
+.dark .prose :where(blockquote):not(:where([class~="not-prose"] *)) {
+  color: #d1d5db;
+  border-left-color: #4b5563;
+}
+
+.prose :where(ul):not(:where([class~="not-prose"] *)) {
+  list-style-type: disc;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-left: 1.625em;
+}
+
+.prose :where(ol):not(:where([class~="not-prose"] *)) {
+  list-style-type: decimal;
+  margin-top: 1.25em;
+  margin-bottom: 1.25em;
+  padding-left: 1.625em;
+}
+
+.prose :where(li):not(:where([class~="not-prose"] *)) {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose :where(hr):not(:where([class~="not-prose"] *)) {
+  border-color: #e5e7eb;
+  border-top-width: 1px;
+  margin-top: 3em;
+  margin-bottom: 3em;
+}
+
+.dark .prose :where(hr):not(:where([class~="not-prose"] *)) {
+  border-color: #374151;
 }
 
 /* Custom Scrollbar */

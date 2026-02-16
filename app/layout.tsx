@@ -20,6 +20,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Lexical Maxxing",
   description: "Offline-first vocabulary builder",
+  icons: {
+    icon: "/LM_logo.png",
+  },
 };
 
 export default function RootLayout({

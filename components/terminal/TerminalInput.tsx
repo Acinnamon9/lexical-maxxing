@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from "react";
 
 interface TerminalInputProps {
-  onExecute: (input: string) => void;
+  onExecute: (input: string) => void | Promise<void>;
   cwdPath: string[];
+  cwdId: string;
   disabled?: boolean;
 }
 
 export default function TerminalInput({
   onExecute,
   cwdPath,
+  cwdId,
   disabled,
 }: TerminalInputProps) {
   const [input, setInput] = useState("");
