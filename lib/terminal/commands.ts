@@ -166,6 +166,8 @@ export const mkdir: CommandHandler = async (args, flags, context) => {
 
   const emoji = (flags.emoji as string) || undefined;
   const color = (flags.color as string) || undefined;
+  const backgroundImage =
+    (flags.image as string) || (flags.bg as string) || undefined;
 
   const parentId = context.cwd === "root" ? null : context.cwd;
 
@@ -175,6 +177,7 @@ export const mkdir: CommandHandler = async (args, flags, context) => {
     parentId,
     emoji,
     color,
+    backgroundImage,
     updatedAt: Date.now(),
   });
 

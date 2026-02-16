@@ -4,6 +4,7 @@ export interface Folder {
   parentId: string | null;
   emoji?: string;
   color?: string; // Hex or CSS color name
+  backgroundImage?: string; // URL for background image
   updatedAt?: number;
 }
 

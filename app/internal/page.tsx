@@ -145,22 +145,20 @@ export default function InternalDocsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
+      <header className="bg-background border-b border-border sticky top-0 z-10 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                📚 Internal Documentation
-              </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <h1 className="text-2xl font-bold">📚 Internal Documentation</h1>
+              <p className="text-sm text-muted-foreground mt-1">
                 SSOT, Workflows, and Project Docs
               </p>
             </div>
             <Link
               href="/"
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
+              className="px-6 py-2 bg-foreground text-background rounded-xl font-bold text-xs hover:opacity-90 transition-all active:scale-95 shadow-lg"
             >
               ← Back to App
             </Link>
@@ -172,23 +170,23 @@ export default function InternalDocsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 sticky top-24">
+            <div className="bg-muted/30 rounded-2xl shadow-sm border border-border sticky top-24 overflow-hidden">
               {/* Search */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="p-4 border-b border-border">
                 <input
                   type="text"
                   placeholder="Search docs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 ring-blue-500/50 transition-all text-sm font-medium"
                 />
               </div>
 
               {/* Document List */}
-              <div className="p-2 max-h-[calc(100vh-240px)] overflow-y-auto">
+              <div className="p-2 max-h-[calc(100vh-240px)] overflow-y-auto no-scrollbar">
                 {Object.entries(groupedDocs).map(([category, categoryDocs]) => (
                   <div key={category} className="mb-4">
-                    <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-3 py-2">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-3 py-2">
                       {category}
                     </h3>
                     <div className="space-y-1">
@@ -197,11 +195,11 @@ export default function InternalDocsPage() {
                           key={doc.path}
                           onClick={() => loadMarkdown(doc.path)}
                           className={`
-                            w-full text-left px-3 py-2 rounded-lg text-sm transition
+                            w-full text-left px-4 py-2 rounded-xl text-sm transition-all
                             ${
                               selectedDoc === doc.path
-                                ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 font-medium"
-                                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                                ? "bg-foreground text-background font-bold shadow-md scale-[1.02]"
+                                : "text-foreground/70 hover:bg-muted/50 hover:text-foreground"
                             }
                           `}
                         >
@@ -217,13 +215,13 @@ export default function InternalDocsPage() {
 
           {/* Content */}
           <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-background rounded-2xl shadow-sm border border-border p-8 md:p-12 min-h-[70vh]">
               {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+                <div className="flex items-center justify-center py-24">
+                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-muted border-t-foreground"></div>
                 </div>
               ) : (
-                <article className="prose prose-slate dark:prose-invert max-w-none">
+                <article className="prose dark:prose-invert max-w-none">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {markdown}
                   </ReactMarkdown>

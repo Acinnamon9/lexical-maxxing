@@ -37,14 +37,14 @@
 }
 
 .dark {
-  --background: #18181b;
-  --foreground: #d4d4d8;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --accent: #27272a;
-  --accent-foreground: #fafafa;
-  --border: #27272a;
-  --selection: #1e3a8a;
+  --background: #0a0a0a; /* Deep Dark */
+  --foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+  --accent: #ffeb3b; /* Cyber Yellow as fallback accent */
+  --accent-foreground: #000000;
+  --border: #333333;
+  --selection: #3b82f6;
 }
 
 .light {
@@ -87,15 +87,26 @@
 }
 
 /* Brutalist theme-specific styles */
-.brutalist * {
+.brutalist *,
+.brutalist-dark * {
   border-radius: 0 !important; /* No rounded corners */
+}
+
+.brutalist-dark {
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .brutalist button,
 .brutalist .btn,
 .brutalist input,
 .brutalist textarea,
-.brutalist select {
+.brutalist select,
+.brutalist-dark button,
+.brutalist-dark .btn,
+.brutalist-dark input,
+.brutalist-dark textarea,
+.brutalist-dark select {
   border: var(--brutalist-border-width) solid var(--border);
   font-weight: 700;
   text-transform: uppercase;
@@ -104,7 +115,9 @@
 }
 
 .brutalist button:hover,
-.brutalist .btn:hover {
+.brutalist .btn:hover,
+.brutalist-dark button:hover,
+.brutalist-dark .btn:hover {
   background: var(--foreground);
   color: var(--background);
   transform: translate(2px, 2px);
@@ -113,9 +126,13 @@
 
 .brutalist .card,
 .brutalist .panel,
-.brutalist .modal {
+.brutalist .modal,
+.brutalist-dark .card,
+.brutalist-dark .panel,
+.brutalist-dark .modal {
   border: var(--brutalist-border-width) solid var(--border);
   box-shadow: var(--brutalist-shadow);
+  background: var(--background);
 }
 
 .brutalist h1,
@@ -123,14 +140,21 @@
 .brutalist h3,
 .brutalist h4,
 .brutalist h5,
-.brutalist h6 {
+.brutalist h6,
+.brutalist-dark h1,
+.brutalist-dark h2,
+.brutalist-dark h3,
+.brutalist-dark h4,
+.brutalist-dark h5,
+.brutalist-dark h6 {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: -0.02em;
   line-height: 1.1;
 }
 
-.brutalist a {
+.brutalist a,
+.brutalist-dark a {
   color: var(--foreground);
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -138,7 +162,8 @@
   font-weight: 700;
 }
 
-.brutalist a:hover {
+.brutalist a:hover,
+.brutalist-dark a:hover {
   background: var(--foreground);
   color: var(--background);
   text-decoration: none;
@@ -147,18 +172,23 @@
 /* Heavy borders on interactive elements */
 .brutalist input:focus,
 .brutalist textarea:focus,
-.brutalist select:focus {
+.brutalist select:focus,
+.brutalist-dark input:focus,
+.brutalist-dark textarea:focus,
+.brutalist-dark select:focus {
   outline: var(--brutalist-border-width) solid var(--foreground);
   outline-offset: 2px;
 }
 
 /* Grid-based layout emphasis */
-.brutalist .grid {
+.brutalist .grid,
+.brutalist-dark .grid {
   gap: var(--brutalist-border-width);
 }
 
 /* Exposed structure */
-.brutalist code {
+.brutalist code,
+.brutalist-dark code {
   font-family: "Courier New", Courier, monospace;
   background: var(--muted);
   border: 2px solid var(--border);
@@ -166,7 +196,8 @@
   font-weight: 600;
 }
 
-.brutalist pre {
+.brutalist pre,
+.brutalist-dark pre {
   background: var(--muted);
   border: var(--brutalist-border-width) solid var(--border);
   padding: 1rem;
@@ -174,20 +205,24 @@
 }
 
 /* Tables with heavy structure */
-.brutalist table {
+.brutalist table,
+.brutalist-dark table {
   border-collapse: separate;
   border-spacing: 0;
   border: var(--brutalist-border-width) solid var(--border);
 }
 
 .brutalist th,
-.brutalist td {
+.brutalist td,
+.brutalist-dark th,
+.brutalist-dark td {
   border: var(--brutalist-border-width) solid var(--border);
   padding: 0.5rem;
   font-weight: 600;
 }
 
-.brutalist th {
+.brutalist th,
+.brutalist-dark th {
   background: var(--foreground);
   color: var(--background);
   text-transform: uppercase;
@@ -205,7 +240,7 @@
   --border: #000000; /* Pure Ink */
   --selection: #ffeb3b;
 
-  /* Neubrutalist-specific colors */
+  /* Neubrutalist-specific properties */
   --neo-sage: #00e5ff; /* Cyan (mapped from sage slot) */
   --neo-peach: #f50057; /* Pink (mapped from peach slot) */
   --neo-yellow: #ffeb3b; /* Cyber Yellow */
@@ -219,17 +254,63 @@
   --neo-light-shadow: 4px 4px 0 #000000;
 }
 
+.brutalist-dark {
+  /* High contrast white and black (inverted) */
+  --background: #000000;
+  --foreground: #ffffff;
+  --muted: #1a1a1a;
+  --muted-foreground: #a3a3a3;
+  --accent: #ffffff;
+  --accent-foreground: #000000;
+  --border: #ffffff;
+  --selection: #ffff00;
+
+  /* Brutalist-specific properties */
+  --brutalist-border-width: 3px;
+  --brutalist-shadow: 6px 6px 0 #ffffff;
+  --brutalist-heavy-shadow: 10px 10px 0 #ffffff;
+}
+
+.neubrutalist-dark {
+  /* Cyber/Solar Dark palette */
+  --background: #0a0a0a; /* Deep Dark */
+  --foreground: #ffffff; /* White */
+  --muted: #1a1a1a;
+  --muted-foreground: #888888;
+  --accent: #ffeb3b; /* Cyber Yellow */
+  --accent-foreground: #000000;
+  --border: #ffffff; /* White borders */
+  --selection: #ffeb3b;
+
+  /* Neubrutalist-specific colors */
+  --neo-sage: #00bcd4; /* Darker Cyan */
+  --neo-peach: #ff4081; /* Lighter Pink for contrast */
+  --neo-yellow: #ffeb3b; /* Cyber Yellow */
+  --neo-blue: #00bcd4; /* Darker Cyan */
+  --neo-cream: #1a1a1a; /* Dark Cream */
+  --neo-lavender: #ba68c8;
+
+  /* Structure */
+  --neo-border-width: 3px;
+  --neo-shadow: 6px 6px 0 #ffffff; /* White hard shadow */
+  --neo-light-shadow: 4px 4px 0 #ffffff;
+}
+
 /* Neubrutalist theme-specific styles */
-.neubrutalist {
+.neubrutalist,
+.neubrutalist-dark {
   background: var(--background);
 }
 
-.neubrutalist body {
+.neubrutalist body,
+.neubrutalist-dark body {
   background: var(--background);
 }
 
 .neubrutalist button,
-.neubrutalist .btn {
+.neubrutalist .btn,
+.neubrutalist-dark button,
+.neubrutalist-dark .btn {
   border: var(--neo-border-width) solid var(--border);
   font-weight: 700;
   text-transform: none; /* Less aggressive than brutalist */
@@ -240,33 +321,44 @@
 }
 
 .neubrutalist button:hover,
-.neubrutalist .btn:hover {
+.neubrutalist .btn:hover,
+.neubrutalist-dark button:hover,
+.neubrutalist-dark .btn:hover {
   transform: translate(-2px, -2px);
   box-shadow: 6px 6px 0 var(--border);
 }
 
 .neubrutalist button:active,
-.neubrutalist .btn:active {
+.neubrutalist .btn:active,
+.neubrutalist-dark button:active,
+.neubrutalist-dark .btn:active {
   transform: translate(2px, 2px);
   box-shadow: 2px 2px 0 var(--border);
 }
 
 /* Primary buttons with pastel backgrounds */
 .neubrutalist button.primary,
-.neubrutalist .btn-primary {
+.neubrutalist .btn-primary,
+.neubrutalist-dark button.primary,
+.neubrutalist-dark .btn-primary {
   background: var(--neo-yellow);
   color: var(--foreground);
 }
 
 .neubrutalist button.secondary,
-.neubrutalist .btn-secondary {
+.neubrutalist .btn-secondary,
+.neubrutalist-dark button.secondary,
+.neubrutalist-dark .btn-secondary {
   background: var(--neo-sage);
   color: var(--foreground);
 }
 
 .neubrutalist input,
 .neubrutalist textarea,
-.neubrutalist select {
+.neubrutalist select,
+.neubrutalist-dark input,
+.neubrutalist-dark textarea,
+.neubrutalist-dark select {
   border: var(--neo-border-width) solid var(--border);
   border-radius: 6px;
   background: var(--background);
@@ -277,14 +369,19 @@
 
 .neubrutalist input:focus,
 .neubrutalist textarea:focus,
-.neubrutalist select:focus {
+.neubrutalist select:focus,
+.neubrutalist-dark input:focus,
+.neubrutalist-dark textarea:focus,
+.neubrutalist-dark select:focus {
   outline: var(--neo-border-width) solid var(--neo-yellow);
   outline-offset: 2px;
   box-shadow: var(--neo-light-shadow);
 }
 
 .neubrutalist .card,
-.neubrutalist .panel {
+.neubrutalist .panel,
+.neubrutalist-dark .card,
+.neubrutalist-dark .panel {
   border: var(--neo-border-width) solid var(--border);
   box-shadow: var(--neo-shadow);
   border-radius: 12px;
@@ -294,17 +391,22 @@
 
 .neubrutalist h1,
 .neubrutalist h2,
-.neubrutalist h3 {
+.neubrutalist h3,
+.neubrutalist-dark h1,
+.neubrutalist-dark h2,
+.neubrutalist-dark h3 {
   font-weight: 800;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
 
-.neubrutalist h1 {
+.neubrutalist h1,
+.neubrutalist-dark h1 {
   font-size: 2.5rem;
 }
 
-.neubrutalist a {
+.neubrutalist a,
+.neubrutalist-dark a {
   color: var(--foreground);
   text-decoration: underline;
   text-decoration-thickness: 2px;
@@ -314,14 +416,17 @@
   transition: all 0.15s ease;
 }
 
-.neubrutalist a:hover {
+.neubrutalist a:hover,
+.neubrutalist-dark a:hover {
   text-decoration-color: var(--neo-peach);
   color: var(--foreground);
 }
 
 /* Tags and badges */
 .neubrutalist .tag,
-.neubrutalist .badge {
+.neubrutalist .badge,
+.neubrutalist-dark .tag,
+.neubrutalist-dark .badge {
   border: 2px solid var(--border);
   border-radius: 20px;
   padding: 0.25rem 0.75rem;
@@ -331,24 +436,30 @@
   display: inline-block;
 }
 
-.neubrutalist .tag.sage {
+.neubrutalist .tag.sage,
+.neubrutalist-dark .tag.sage {
   background: var(--neo-sage);
 }
-.neubrutalist .tag.peach {
+.neubrutalist .tag.peach,
+.neubrutalist-dark .tag.peach {
   background: var(--neo-peach);
 }
-.neubrutalist .tag.yellow {
+.neubrutalist .tag.yellow,
+.neubrutalist-dark .tag.yellow {
   background: var(--neo-yellow);
 }
-.neubrutalist .tag.blue {
+.neubrutalist .tag.blue,
+.neubrutalist-dark .tag.blue {
   background: var(--neo-blue);
 }
-.neubrutalist .tag.lavender {
+.neubrutalist .tag.lavender,
+.neubrutalist-dark .tag.lavender {
   background: var(--neo-lavender);
 }
 
 /* Code blocks with softer styling */
-.neubrutalist code {
+.neubrutalist code,
+.neubrutalist-dark code {
   font-family: "Courier New", Courier, monospace;
   background: var(--neo-cream);
   border: 2px solid var(--border);
@@ -358,7 +469,8 @@
   color: var(--foreground);
 }
 
-.neubrutalist pre {
+.neubrutalist pre,
+.neubrutalist-dark pre {
   background: var(--neo-cream);
   border: var(--neo-border-width) solid var(--border);
   border-radius: 8px;
@@ -368,7 +480,8 @@
 }
 
 /* Tables with playful accents */
-.neubrutalist table {
+.neubrutalist table,
+.neubrutalist-dark table {
   border-collapse: separate;
   border-spacing: 0;
   border: var(--neo-border-width) solid var(--border);
@@ -377,24 +490,29 @@
 }
 
 .neubrutalist th,
-.neubrutalist td {
+.neubrutalist td,
+.neubrutalist-dark th,
+.neubrutalist-dark td {
   border: 2px solid var(--border);
   padding: 0.75rem;
   font-weight: 500;
 }
 
-.neubrutalist th {
+.neubrutalist th,
+.neubrutalist-dark th {
   background: var(--neo-yellow);
   color: var(--foreground);
   font-weight: 700;
 }
 
-.neubrutalist tbody tr:nth-child(even) {
+.neubrutalist tbody tr:nth-child(even),
+.neubrutalist-dark tbody tr:nth-child(even) {
   background: var(--neo-cream);
 }
 
 /* Separator with geometric pattern */
-.neubrutalist hr {
+.neubrutalist hr,
+.neubrutalist-dark hr {
   border: none;
   height: 3px;
   background: repeating-linear-gradient(
@@ -408,7 +526,8 @@
 }
 
 /* Blockquotes with accent */
-.neubrutalist blockquote {
+.neubrutalist blockquote,
+.neubrutalist-dark blockquote {
   border-left: 5px solid var(--neo-sage);
   background: var(--neo-cream);
   padding: 1rem;
@@ -420,7 +539,9 @@
 
 /* Modal/Dialog styling */
 .neubrutalist .modal,
-.neubrutalist dialog {
+.neubrutalist dialog,
+.neubrutalist-dark .modal,
+.neubrutalist-dark dialog {
   border: var(--neo-border-width) solid var(--border);
   border-radius: 12px;
   box-shadow: var(--neo-shadow);
@@ -428,12 +549,14 @@
 }
 
 /* Lists with custom markers */
-.neubrutalist ul {
+.neubrutalist ul,
+.neubrutalist-dark ul {
   list-style: none;
   padding-left: 1.5rem;
 }
 
-.neubrutalist ul li::before {
+.neubrutalist ul li::before,
+.neubrutalist-dark ul li::before {
   content: "▸";
   color: var(--neo-yellow);
   font-weight: bold;

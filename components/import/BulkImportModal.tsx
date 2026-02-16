@@ -1,17 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { bulkImportMeanings, importFolders, importNotes } from "@/lib/import";
+import {
+  bulkImportMeanings,
+  importFolders,
+  importNotes,
+  importFolderTree,
+} from "@/lib/import";
 import { motion, AnimatePresence } from "framer-motion";
 
-export type ImportMode = "meanings" | "folders" | "notes";
+export type ImportMode = "meanings" | "folders" | "notes" | "backup";
 
 interface BulkImportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   mode?: ImportMode;
-  targetId?: string; // folderId for notes
+  targetId?: string; // folderId for notes or backup root
 }
 
 export default function BulkImportModal({
@@ -67,6 +72,19 @@ export default function BulkImportModal({
       ],
       description: "Notes will be added to the current folder.",
     },
+    backup: {
+      title: "Deep Import (Backup)",
+      placeholder: "Paste full folder tree JSON...",
+      buttonLabel: "Restore Backup",
+      template: {
+        name: "Restored Folder",
+        emoji: "📦",
+        words: [{ term: "Example", meanings: ["Definition"] }],
+        subfolders: [],
+      },
+      description:
+        "Restore a full folder structure including subfolders and words.",
+    },
   }[mode];
 
   // Handle Escape Key
@@ -88,32 +106,78 @@ export default function BulkImportModal({
     setMessage(null);
 
     try {
-      let result;
-      if (mode === "meanings") {
-        result = await bulkImportMeanings(jsonText);
-      } else if (mode === "folders") {
-        result = await importFolders(jsonText);
-      } else if (mode === "notes") {
-        if (!targetId) throw new Error("Folder targetId is required for notes");
-        result = await importNotes(targetId, jsonText);
+      // 1. Validate JSON first
+      let parsedData;
+      try {
+        parsedData = JSON.parse(jsonText);
+      } catch (e) {
+        throw new Error("Invalid JSON format. Please check your syntax.");
       }
 
-      if (result?.success) {
-        setMessage(result.message);
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-          setJsonText("");
-          setMessage(null);
-        }, 2000);
-      } else {
-        setMessage(`Error: ${result?.message || "Unknown error"}`);
+      // 2. Validate Structure based on mode
+      if (mode === "meanings") {
+        if (
+          !Array.isArray(parsedData) ||
+          !parsedData.every((item) => item.term && item.meanings)
+        ) {
+          throw new Error(
+            "Invalid format. Expected an array of objects with 'term' and 'meanings'.",
+          );
+        }
+        const result = await bulkImportMeanings(jsonText); // Pass raw string as lib handles it, but we validated content
+        handleResult(result);
+      } else if (mode === "folders") {
+        if (
+          !Array.isArray(parsedData) ||
+          !parsedData.every((item) => item.name)
+        ) {
+          throw new Error(
+            "Invalid format. Expected an array of folder objects with a 'name'.",
+          );
+        }
+        const result = await importFolders(jsonText);
+        handleResult(result);
+      } else if (mode === "notes") {
+        if (!targetId) throw new Error("Folder targetId is required for notes");
+        if (
+          !Array.isArray(parsedData) ||
+          !parsedData.every((item: any) => item.title && item.content)
+        ) {
+          throw new Error(
+            "Invalid format. Expected an array of note objects with 'title' and 'content'.",
+          );
+        }
+        const result = await importNotes(targetId, jsonText);
+        handleResult(result);
+      } else if (mode === "backup") {
+        if (!parsedData.name || !Array.isArray(parsedData.words || [])) {
+          throw new Error(
+            "Invalid format. Expected a folder object with 'name' and 'words' array.",
+          );
+        }
+        // targetId can be parentId (optional)
+        const result = await importFolderTree(targetId || null, parsedData);
+        handleResult(result);
       }
     } catch (err: unknown) {
       const e = err as Error;
       setMessage(`Failed: ${e.message}`);
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleResult = (result: any) => {
+    if (result?.success) {
+      setMessage(result.message);
+      setTimeout(() => {
+        onSuccess();
+        onClose();
+        setJsonText("");
+        setMessage(null);
+      }, 2000);
+    } else {
+      setMessage(`Error: ${result?.message || "Unknown error"}`);
     }
   };
 

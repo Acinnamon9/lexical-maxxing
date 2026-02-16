@@ -26,11 +26,12 @@ export const COMMAND_REGISTRY: Record<string, CommandDefinition> = {
   mkdir: {
     name: "mkdir",
     description: "Create a new folder",
-    usage: "mkdir <name> [--emoji <char>] [--color <hex>]",
+    usage: "mkdir <name> [--emoji <char>] [--color <hex>] [--image <url>]",
     action: mkdir,
     flags: {
       "--emoji": "Set emoji icon for layer",
       "--color": "Set color label",
+      "--image": "Set background image URL",
     },
   },
   add: {
@@ -40,6 +41,7 @@ export const COMMAND_REGISTRY: Record<string, CommandDefinition> = {
     action: add,
     flags: {
       "--meaning": "Initial meaning for the word",
+      "--color": "Set color label (hex)",
     },
   },
   rm: {

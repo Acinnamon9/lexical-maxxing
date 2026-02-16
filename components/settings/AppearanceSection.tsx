@@ -26,82 +26,97 @@ export default function AppearanceSection() {
     if (!mounted) return;
 
     const root = document.documentElement;
-    const themes = ["dark", "light", "solarized", "brutalist", "neubrutalist"];
+    const allThemes = [
+      "light",
+      "dark",
+      "solarized",
+      "brutalist",
+      "brutalist-dark",
+      "neubrutalist",
+      "neubrutalist-dark",
+    ];
 
-    if (themes.includes(theme)) {
+    // Remove all theme classes first
+    allThemes.forEach((t) => root.classList.remove(t));
+
+    // Add selected theme
+    if (theme !== "system") {
       root.classList.add(theme);
-      themes.forEach((t) => {
-        if (t !== theme) root.classList.remove(t);
-      });
-    } else {
-      themes.forEach((t) => root.classList.remove(t));
     }
 
     localStorage.setItem("theme", theme);
   }, [theme, mounted]);
 
-  const updateTheme = (newTheme: any) => {
-    setTheme(newTheme);
-  };
+  const themes = [
+    {
+      id: "light",
+      name: "Light",
+      preview: "bg-white border-gray-200 text-gray-900",
+    },
+    {
+      id: "dark",
+      name: "Dark",
+      preview: "bg-zinc-950 border-zinc-800 text-zinc-100",
+    },
+    {
+      id: "solarized",
+      name: "Solarized",
+      preview: "bg-[#fdf6e3] border-[#d5cfba] text-[#586e75]",
+    },
+    {
+      id: "brutalist",
+      name: "Brutalist",
+      preview: "bg-white border-black border-[3px] shadow-[4px_4px_0_#000000]",
+    },
+    {
+      id: "brutalist-dark",
+      name: "Brutalist Dark",
+      preview:
+        "bg-black border-white border-[3px] shadow-[4px_4px_0_#ffffff] text-white",
+    },
+    {
+      id: "neubrutalist",
+      name: "Neubrutalist",
+      preview:
+        "bg-[#fdf6e3] border-black border-[3px] shadow-[4px_4px_0_#000000] rounded-xl",
+    },
+    {
+      id: "neubrutalist-dark",
+      name: "Neubrutalist Dark",
+      preview:
+        "bg-[#0a0a0a] border-white border-[3px] shadow-[4px_4px_0_#ffffff] rounded-xl text-white",
+    },
+  ];
 
   return (
-    <motion.section variants={item} className="space-y-4">
+    <motion.section variants={item} className="space-y-6">
       <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
         Appearance
       </h2>
-      <div className="grid gap-2">
-        <div className="card flex items-center justify-between p-4 bg-muted/30 rounded-2xl border border-border">
-          <div>
-            <p className="font-medium">Theme</p>
-            <p className="text-xs text-muted-foreground">
-              System preference by default
-            </p>
-          </div>
-          <div className="flex bg-background p-1 rounded-xl border border-border shadow-sm min-w-[200px] justify-end">
-            {!mounted ? (
-              <div className="h-6 w-full animate-pulse bg-muted rounded-lg" />
-            ) : (
-              <>
-                <button
-                  onClick={() => updateTheme("system")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "system" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  System
-                </button>
-                <button
-                  onClick={() => updateTheme("light")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "light" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Light
-                </button>
-                <button
-                  onClick={() => updateTheme("dark")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "dark" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Dark
-                </button>
-                <button
-                  onClick={() => updateTheme("solarized")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "solarized" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Solarized
-                </button>
-                <button
-                  onClick={() => updateTheme("brutalist")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "brutalist" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Brutalist
-                </button>
-                <button
-                  onClick={() => updateTheme("neubrutalist")}
-                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-colors ${theme === "neubrutalist" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                >
-                  Neubrutalist
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        {mounted &&
+          themes.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setTheme(t.id as any)}
+              className={`group relative flex flex-col items-center gap-3 p-3 rounded-2xl border-2 transition-all ${
+                theme === t.id
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  : "border-transparent hover:bg-muted/50"
+              }`}
+            >
+              <div
+                className={`w-full aspect-video rounded-lg ${t.preview} relative overflow-hidden flex items-center justify-center`}
+              >
+                <div className="w-1/2 h-2 bg-current opacity-20 rounded-full" />
+              </div>
+              <span className="text-xs font-semibold">{t.name}</span>
+              {theme === t.id && (
+                <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-primary animate-pulse" />
+              )}
+            </button>
+          ))}
       </div>
     </motion.section>
   );

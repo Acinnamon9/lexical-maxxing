@@ -227,307 +227,374 @@ export default function FolderDetailPage() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="min-h-screen p-8 max-w-4xl mx-auto font-sans bg-background">
-        <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <motion.div
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-          >
-            <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3 flex-wrap">
-              <BreadcrumbDroppable id={null} name="Dashboard" isLast={false} />
-              {breadcrumbs?.map((bc, idx) => (
-                <div key={bc.id} className="flex items-center gap-1.5">
-                  <span className="text-[10px] opacity-30 select-none">/</span>
-                  <BreadcrumbDroppable
-                    id={bc.id}
-                    name={bc.name}
-                    isLast={idx === breadcrumbs.length - 1}
-                  />
-                </div>
-              ))}
-            </nav>
-            {isEditingTitle ? (
-              <input
-                autoFocus
-                className="text-3xl font-bold tracking-tight bg-transparent border-b border-blue-500 focus:outline-none w-full"
-                value={titleValue}
-                onChange={(e) => setTitleValue(e.target.value)}
-                onBlur={handleSaveTitle}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSaveTitle();
-                  if (e.key === "Escape") setIsEditingTitle(false);
-                }}
-              />
-            ) : (
-              <h1
-                className="text-3xl font-bold tracking-tight hover:text-blue-500 cursor-pointer transition-colors flex items-center gap-2"
-                onClick={handleStartTitleEdit}
-              >
-                {getFolder.emoji && <span>{getFolder.emoji}</span>}
-                {getFolder.name}
-              </h1>
-            )}
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
-                {wordCount} words
-              </span>
-              <span className="text-[10px] text-muted-foreground font-mono opacity-50 uppercase tracking-widest">
-                ID: {folderId}
-              </span>
-            </div>
-          </motion.div>
-
-          {/* Quick Actions */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowCreateFolder(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-xl text-xs font-bold hover:bg-muted transition-all active:scale-95 shadow-sm"
+      <div
+        className="min-h-screen p-8 transition-all duration-500 font-sans"
+        style={
+          getFolder.backgroundImage
+            ? {
+                backgroundImage: `linear-gradient(to bottom, var(--background), rgba(0,0,0,0.6)), url(${getFolder.backgroundImage})`,
+                backgroundSize: "cover",
+                backgroundAttachment: "fixed",
+                backgroundPosition: "center",
+              }
+            : { backgroundColor: "var(--background)" }
+        }
+      >
+        <div className="max-w-4xl mx-auto">
+          <header className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <motion.div
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              New Subfolder
-            </button>
-            <button
-              onClick={() => setShowNoteModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              New Note
-            </button>
-            <button
-              onClick={() => setShowNoteImport(true)}
-              className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-xl text-xs font-bold hover:bg-muted transition-all active:scale-95 shadow-sm"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" x2="12" y1="3" y2="15" />
-              </svg>
-              Paste JSON Notes
-            </button>
-          </div>
-        </header>
-
-        {/* Section: Folders */}
-        <section className="mb-12">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-3">
-              <span className="w-8 h-px bg-border"></span>
-              Subfolders
-              <span className="text-[10px] lowercase font-normal opacity-50 tracking-normal">
-                ({subfolders.length})
-              </span>
-            </h2>
-          </div>
-
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 gap-6"
-          >
-            {subfolders.map((folder) => (
-              <motion.div key={folder.id} variants={item}>
-                <FolderCard
-                  folder={folder}
-                  variant="subfolder"
-                  isEditing={editingSubfolderId === folder.id}
-                  editName={subfolderEditName}
-                  onEditNameChange={setSubfolderEditName}
-                  onSaveEdit={handleSaveSubfolder}
-                  onStartEdit={handleStartSubfolderEdit}
-                  onCancelEdit={() => setEditingSubfolderId(null)}
-                  onDelete={async (f) => {
-                    if (
-                      confirm(`Are you sure you want to delete "${f.name}"?`)
-                    ) {
-                      await db.transaction(
-                        "rw",
-                        db.folders,
-                        db.wordFolders,
-                        async () => {
-                          await db.folders.delete(f.id);
-                          await db.wordFolders
-                            .where("folderId")
-                            .equals(f.id)
-                            .delete();
-                        },
-                      );
-                    }
+              <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-3 flex-wrap">
+                <BreadcrumbDroppable
+                  id={null}
+                  name="Dashboard"
+                  isLast={false}
+                />
+                {breadcrumbs?.map((bc, idx) => (
+                  <div key={bc.id} className="flex items-center gap-1.5">
+                    <span className="text-[10px] opacity-30 select-none">
+                      /
+                    </span>
+                    <BreadcrumbDroppable
+                      id={bc.id}
+                      name={bc.name}
+                      isLast={idx === breadcrumbs.length - 1}
+                    />
+                  </div>
+                ))}
+              </nav>
+              {isEditingTitle ? (
+                <input
+                  autoFocus
+                  className="text-3xl font-bold tracking-tight bg-transparent border-b border-blue-500 focus:outline-none w-full"
+                  value={titleValue}
+                  onChange={(e) => setTitleValue(e.target.value)}
+                  onBlur={handleSaveTitle}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleSaveTitle();
+                    if (e.key === "Escape") setIsEditingTitle(false);
                   }}
                 />
-              </motion.div>
-            ))}
-            <motion.div
-              variants={item}
-              className="flex flex-col gap-4 p-8 border-2 border-dashed border-border rounded-2xl bg-muted/20 items-center justify-center text-center group hover:border-indigo-500/50 transition-colors"
-            >
-              <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center text-muted-foreground shadow-sm group-hover:bg-indigo-500 group-hover:text-white transition-all">
+              ) : (
+                <h1
+                  className="text-3xl font-bold tracking-tight hover:text-blue-500 cursor-pointer transition-colors flex items-center gap-2"
+                  onClick={handleStartTitleEdit}
+                >
+                  {getFolder.emoji && <span>{getFolder.emoji}</span>}
+                  {getFolder.name}
+                </h1>
+              )}
+              <div className="flex items-center gap-4 mt-2">
+                <span className="text-[10px] font-bold text-indigo-500/80 uppercase tracking-widest bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20">
+                  {wordCount} words
+                </span>
+                <span className="text-[10px] text-muted-foreground font-mono opacity-50 uppercase tracking-widest">
+                  ID: {folderId}
+                </span>
+              </div>
+            </motion.div>
+
+            {/* Quick Actions */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCreateFolder(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-xl text-xs font-bold hover:bg-muted transition-all active:scale-95 shadow-sm"
+              >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
+                  width="14"
+                  height="14"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="2.5"
+                  strokeWidth="3"
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
                   <line x1="12" y1="5" x2="12" y2="19" />
                   <line x1="5" y1="12" x2="19" y2="12" />
                 </svg>
-              </div>
-              <div>
-                <p className="text-sm font-bold">Organize better</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Create subfolders for specific domains.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCreateFolder(true)}
-                  className="px-6 py-2 bg-foreground text-background rounded-xl font-bold text-sm shadow-xl active:scale-95 hover:opacity-90 transition-opacity"
-                >
-                  New Folder
-                </button>
-                <button
-                  onClick={() => setShowImport(true)}
-                  className="px-6 py-2 border border-border rounded-xl font-bold text-sm hover:bg-muted transition-colors bg-background"
-                >
-                  Import JSON
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        </section>
-
-        {/* Section: Notes */}
-        <section className="mb-12">
-          <NoteList
-            notes={notes || []}
-            onEdit={(note) => {
-              setEditingNote(note);
-              setShowNoteModal(true);
-            }}
-            onDelete={handleDeleteNote}
-          />
-        </section>
-
-        {/* Section: Words */}
-        {enrichedWords.length > 0 && (
-          <section className="mb-20">
-            <div className="flex justify-between items-center mb-8">
-              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-3">
-                <span className="w-8 h-px bg-border"></span>
-                Vocabulary Map
-              </h2>
+                New Subfolder
+              </button>
               <button
-                onClick={() => {
-                  // Limit to first 10 words to prevent AI response truncation
-                  const batchSize = Math.min(wordCount, 10);
-                  window.dispatchEvent(
-                    new CustomEvent("ai-widget-open", {
-                      detail: {
-                        query: `Assign thematic colors to the first ${batchSize} words in the "${getFolder.name}" folder based on their semantic meaning. Use hex colors.`,
-                        mode: "ARCHITECT",
-                      },
-                    }),
-                  );
-                }}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-indigo-500 hover:bg-indigo-500/10 transition-colors border border-indigo-500/20"
+                onClick={() => setShowNoteModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-foreground text-background rounded-xl text-xs font-bold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-foreground/10"
               >
-                <span>✨</span> Auto-Color AI
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                New Note
+              </button>
+              <button
+                onClick={() => setShowNoteImport(true)}
+                className="flex items-center gap-2 px-4 py-2 border border-border bg-background rounded-xl text-xs font-bold hover:bg-muted transition-all active:scale-95 shadow-sm"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" x2="12" y1="3" y2="15" />
+                </svg>
+                Paste JSON Notes
               </button>
             </div>
-            <div className="space-y-12">
-              {chunks.map((chunk, chunkIdx) => (
-                <div key={chunkIdx} className="relative">
-                  {chunkIdx > 0 && (
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
-                      <div className="w-px h-4 bg-foreground" />
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                    {chunk.map((word) => (
-                      <WordCard key={word.id} word={word} folderId={folderId} />
-                    ))}
-                  </div>
-                </div>
-              ))}
+          </header>
+
+          {/* Section: Folders */}
+          <section className="mb-12">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-3">
+                <span className="w-8 h-px bg-border"></span>
+                Subfolders
+                <span className="text-[10px] lowercase font-normal opacity-50 tracking-normal">
+                  ({subfolders.length})
+                </span>
+              </h2>
             </div>
+
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+            >
+              {subfolders.map((folder) => (
+                <motion.div key={folder.id} variants={item}>
+                  <FolderCard
+                    folder={folder}
+                    variant="subfolder"
+                    isEditing={editingSubfolderId === folder.id}
+                    editName={subfolderEditName}
+                    onEditNameChange={setSubfolderEditName}
+                    onSaveEdit={handleSaveSubfolder}
+                    onStartEdit={handleStartSubfolderEdit}
+                    onCancelEdit={() => setEditingSubfolderId(null)}
+                    onDelete={async (f) => {
+                      if (
+                        confirm(`Are you sure you want to delete "${f.name}"?`)
+                      ) {
+                        await db.transaction(
+                          "rw",
+                          db.folders,
+                          db.wordFolders,
+                          async () => {
+                            await db.folders.delete(f.id);
+                            await db.wordFolders
+                              .where("folderId")
+                              .equals(f.id)
+                              .delete();
+                          },
+                        );
+                      }
+                    }}
+                  />
+                </motion.div>
+              ))}
+              <motion.div
+                variants={item}
+                className="flex flex-col gap-4 p-8 border-2 border-dashed border-border rounded-2xl bg-muted/20 items-center justify-center text-center group hover:border-indigo-500/50 transition-colors"
+              >
+                <div className="h-12 w-12 rounded-full bg-background flex items-center justify-center text-muted-foreground shadow-sm group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold">Organize better</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Create subfolders for specific domains.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowCreateFolder(true)}
+                    className="px-6 py-2 bg-foreground text-background rounded-xl font-bold text-sm shadow-xl active:scale-95 hover:opacity-90 transition-opacity"
+                  >
+                    New Folder
+                  </button>
+                  <button
+                    onClick={() => setShowImport(true)}
+                    className="px-6 py-2 border border-border rounded-xl font-bold text-sm hover:bg-muted transition-colors bg-background"
+                  >
+                    Import JSON
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const { exportFolderTree } =
+                          await import("@/lib/export");
+                        const data = await exportFolderTree(folderId);
+                        if (data) {
+                          const blob = new Blob(
+                            [JSON.stringify(data, null, 2)],
+                            { type: "application/json" },
+                          );
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = `${getFolder.name.replace(/[^a-z0-9]/gi, "_").toLowerCase()}_backup.json`;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                          URL.revokeObjectURL(url);
+                        }
+                      } catch (e) {
+                        alert("Export failed: " + (e as Error).message);
+                      }
+                    }}
+                    className="px-6 py-2 border border-border rounded-xl font-bold text-sm hover:bg-muted transition-colors bg-background flex items-center gap-2"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" x2="12" y1="15" y2="3" />
+                    </svg>
+                    Export
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
           </section>
-        )}
 
-        <NoteModal
-          isOpen={showNoteModal}
-          onClose={() => {
-            setShowNoteModal(false);
-            setEditingNote(undefined);
-          }}
-          onSave={editingNote ? handleUpdateNote : handleCreateNote}
-          initialTitle={editingNote?.title}
-          initialContent={editingNote?.content}
-          isEditing={!!editingNote}
-        />
+          {/* Section: Notes */}
+          <section className="mb-12">
+            <NoteList
+              notes={notes || []}
+              onEdit={(note) => {
+                setEditingNote(note);
+                setShowNoteModal(true);
+              }}
+              onDelete={handleDeleteNote}
+            />
+          </section>
 
-        <CreateFolderModal
-          isOpen={showCreateFolder}
-          parentId={folderId}
-          onClose={() => setShowCreateFolder(false)}
-          onSuccess={() => {}}
-        />
+          {/* Section: Words */}
+          {enrichedWords.length > 0 && (
+            <section className="mb-20">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-3">
+                  <span className="w-8 h-px bg-border"></span>
+                  Vocabulary Map
+                </h2>
+                <button
+                  onClick={() => {
+                    // Limit to first 10 words to prevent AI response truncation
+                    const batchSize = Math.min(wordCount, 10);
+                    window.dispatchEvent(
+                      new CustomEvent("ai-widget-open", {
+                        detail: {
+                          query: `Assign thematic colors to the first ${batchSize} words in the "${getFolder.name}" folder based on their semantic meaning. Use hex colors.`,
+                          mode: "ARCHITECT",
+                        },
+                      }),
+                    );
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-indigo-500 hover:bg-indigo-500/10 transition-colors border border-indigo-500/20"
+                >
+                  <span>✨</span> Auto-Color AI
+                </button>
+              </div>
+              <div className="space-y-12">
+                {chunks.map((chunk, chunkIdx) => (
+                  <div key={chunkIdx} className="relative">
+                    {chunkIdx > 0 && (
+                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-20">
+                        <div className="w-px h-4 bg-foreground" />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                      {chunk.map((word) => (
+                        <WordCard
+                          key={word.id}
+                          word={word}
+                          folderId={folderId}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-        <ImportModal
-          isOpen={showImport}
-          folderId={folderId}
-          folderName={getFolder.name}
-          onClose={() => setShowImport(false)}
-          onSuccess={() => {}}
-        />
+          <NoteModal
+            isOpen={showNoteModal}
+            onClose={() => {
+              setShowNoteModal(false);
+              setEditingNote(undefined);
+            }}
+            onSave={editingNote ? handleUpdateNote : handleCreateNote}
+            initialTitle={editingNote?.title}
+            initialContent={editingNote?.content}
+            isEditing={!!editingNote}
+          />
 
-        <BulkImportModal
-          isOpen={showNoteImport}
-          onClose={() => setShowNoteImport(false)}
-          onSuccess={() => {}}
-          mode="notes"
-          targetId={folderId}
-        />
+          <CreateFolderModal
+            isOpen={showCreateFolder}
+            parentId={folderId}
+            onClose={() => setShowCreateFolder(false)}
+            onSuccess={() => {}}
+          />
+
+          <ImportModal
+            isOpen={showImport}
+            folderId={folderId}
+            folderName={getFolder.name}
+            onClose={() => setShowImport(false)}
+            onSuccess={() => {}}
+          />
+
+          <BulkImportModal
+            isOpen={showNoteImport}
+            onClose={() => setShowNoteImport(false)}
+            onSuccess={() => {}}
+            mode="notes"
+            targetId={folderId}
+          />
+        </div>
       </div>
     </DndContext>
   );
@@ -561,7 +628,7 @@ function WordCard({
           scale: 1.05,
           y: -4,
           boxShadow: word.color
-            ? `0 12px 24px -6px ${word.color}60`
+            ? `0 12px 24px -6px color-mix(in srgb, ${word.color}, transparent 60%)`
             : "0 10px 20px -5px rgba(0,0,0,0.1)",
         }}
         whileTap={{ scale: 0.98 }}
@@ -570,7 +637,7 @@ function WordCard({
         style={
           word.color
             ? {
-                backgroundColor: `${word.color}08`, // Subtle greyish-tinted background
+                backgroundColor: `color-mix(in srgb, ${word.color}, transparent 95%)`,
                 color: word.color,
                 borderColor: word.color,
                 borderWidth: "2px",

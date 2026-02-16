@@ -66,10 +66,21 @@ export default function FolderCard({
     >
       <Link
         href={`/folder/${folder.id}`}
-        className={`block border border-border rounded-2xl hover:border-border transition-all bg-background shadow-sm ${
+        className={`block border border-border rounded-2xl hover:border-border transition-all bg-background shadow-sm overflow-hidden ${
           variant === "dashboard" ? "p-6" : "p-6"
         } ${isOver ? "bg-indigo-50/50 dark:bg-indigo-950/20" : "hover:bg-muted/30"}`}
-        style={folder.color ? { borderLeft: `4px solid ${folder.color}` } : {}}
+        style={{
+          ...(folder.color ? { borderLeft: `8px solid ${folder.color}` } : {}),
+          ...(folder.backgroundImage
+            ? {
+                backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6)), url(${folder.backgroundImage})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                color: "white",
+                textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+              }
+            : {}),
+        }}
       >
         <div
           {...attributes}
